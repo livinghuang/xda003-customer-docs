@@ -71,6 +71,42 @@ strip_appendix() {
   ' "$1"
 }
 
+# Cross-repo links resolve in the source layout (sibling 21_XDA003B /
+# 22_XDA003H folders) but break in this public repo. Rewrite the known
+# inbound patterns to either:
+#   * a path that works inside this repo (belt_operation → belt/...)
+#   * plain text without a link, when the target is a private-only
+#     resource that we deliberately do not expose (e.g., dev tools).
+#
+# `sed -i ''` is the BSD/macOS form; on GNU sed it's `sed -i`. The bare
+# pattern keeps this script portable across both.
+rewrite_links() {
+  local file="$1"
+  # Cross-repo doc → public-repo doc.
+  sed -i '' \
+    -e 's|\.\./\.\./21_XDA003B/docs/belt_operation\.md|../belt/operation.md|g' \
+    -e 's|\.\./\.\./21_XDA003B/docs/belt_hook_parameter_protocol\.md|../belt/parameter_protocol.md|g' \
+    -e 's|\.\./\.\./22_XDA003H/docs/hook_operation\.md|../hook/operation.md|g' \
+    "$file"
+  # Private-only tool links → unwrap to plain text (drop the `[...](...)`
+  # wrapper, keep only the visible text).
+  /opt/homebrew/bin/python3 - "$file" <<'PY'
+import re, sys
+p = sys.argv[1]
+text = open(p, 'r', encoding='utf-8').read()
+# Patterns whose targets are not part of the public repo. Match the
+# whole `[text](url)` and replace with just `text`.
+patterns = [
+    r'\[([^\]]+)\]\(\.\./\.\./21_XDA003B/tools/[^)]*\)',
+    r'\[([^\]]+)\]\(\.\./\.\./22_XDA003H/tools/[^)]*\)',
+    r'\[([^\]]+)\]\(\.\./\.\./tools/[^)]*\)',
+]
+for pat in patterns:
+    text = re.sub(pat, r'\1', text)
+open(p, 'w', encoding='utf-8').write(text)
+PY
+}
+
 for entry in "${MD_PAIRS[@]}"; do
   src="${entry%%::*}"
   dst_rel="${entry##*::}"
@@ -82,9 +118,10 @@ for entry in "${MD_PAIRS[@]}"; do
   mkdir -p "$(dirname "$dst")"
   tmp="$(mktemp)"
   strip_appendix "$src" > "$tmp"
+  rewrite_links "$tmp"
   if [[ ! -f "$dst" ]] || ! cmp -s "$tmp" "$dst"; then
     mv "$tmp" "$dst"
-    echo "  updated  $dst_rel  (stripped appendix)"
+    echo "  updated  $dst_rel  (stripped appendix + rewrote links)"
     # Rebuild PDF alongside.
     pdf_dst="${dst%.md}.pdf"
     if "$MD2PDF" "$dst" "$pdf_dst" >/dev/null 2>&1; then
@@ -108,11 +145,15 @@ for entry in "${RAW_PAIRS[@]}"; do
     continue
   fi
   mkdir -p "$(dirname "$dst")"
-  if [[ ! -f "$dst" ]] || ! cmp -s "$src" "$dst"; then
-    cp "$src" "$dst"
+  tmp="$(mktemp)"
+  cp "$src" "$tmp"
+  rewrite_links "$tmp"
+  if [[ ! -f "$dst" ]] || ! cmp -s "$tmp" "$dst"; then
+    mv "$tmp" "$dst"
     echo "  updated  $dst_rel"
     changed=$((changed + 1))
   else
+    rm -f "$tmp"
     echo "  unchanged $dst_rel"
   fi
 done

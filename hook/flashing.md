@@ -92,7 +92,7 @@ A：確認：
 3. Belt 的 NVS 已綁定這支 hook 的 chipId（Belt 收過 fPort=10 INITIAL downlink）
 
 **Q：Hook 一直 ALARM**
-A：檢查 magnetometer Y 軸 baseline。如果 \|Y\| 落在 [23000, 32767] 區間（沒掛金屬時的典型值），EXCLUSIVE 邏輯就會持續偵測到金屬 = NORMAL。如果 baseline 跑掉了，可以透過 BLE web console（[hook_ble_console.html](../../tools/hook_ble_console.html)）調整三軸閾值。
+A：檢查 magnetometer Y 軸 baseline。如果 \|Y\| 落在 [23000, 32767] 區間（沒掛金屬時的典型值），EXCLUSIVE 邏輯就會持續偵測到金屬 = NORMAL。如果 baseline 跑掉了，可以透過 BLE web console（hook_ble_console.html）調整三軸閾值。
 
 **Q：要怎麼回到 factory default？**
 A：整片 erase_flash 後重燒：

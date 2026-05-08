@@ -37,7 +37,7 @@
   * 沒有 client 連線時持續廣播。
   * 有 client 連線後保持連線、推送 notify。
   * client 斷線會在 `onDisconnect` callback 立即重啟廣播。
-* Hook 接受**任何**符合 GATT 規格的 client 連線（不限定 Belt 的 MAC）— 所以開發 / 維護時可以直接用 Web BLE Console（[XDA003 Belt repo 的 tools/](../../21_XDA003B/tools/)）以瀏覽器連上同一支 Hook，與 Belt 共用同一條 GATT 通道做即時監控。
+* Hook 接受**任何**符合 GATT 規格的 client 連線（不限定 Belt 的 MAC）— 所以開發 / 維護時可以直接用 Web BLE Console（XDA003 Belt repo 的 tools/）以瀏覽器連上同一支 Hook，與 Belt 共用同一條 GATT 通道做即時監控。
 
 ***
 
@@ -63,7 +63,7 @@
   * 寫入後立即生效，並透過 LittleFS 持久保存，重開機後仍沿用。
 * **警報行為**：
   * 兩顆 LED（`pLed`、`pLed1`）同步亮起，提醒作業員「這支 Hook 沒有掛在合格金屬上」。
-  * Hook 同時在 §2.4 的 BLE notify 把 `status = 1` 推給 Belt；Belt 端再依「兩支 Hook 同時異常 + 位於危險區」決定是否升級為遠端緊急上報（見 [21_XDA003B Belt 操作說明](../../21_XDA003B/docs/belt_operation.md) §2.4）。
+  * Hook 同時在 §2.4 的 BLE notify 把 `status = 1` 推給 Belt；Belt 端再依「兩支 Hook 同時異常 + 位於危險區」決定是否升級為遠端緊急上報（見 [21_XDA003B Belt 操作說明](../belt/operation.md) §2.4）。
 * **解除條件**：再次偵測到金屬即立即清零 — `last_metal_seen_ms` 更新到當下，`not_detected_counter` 歸 0，`status` 切回 0，LED 熄滅。中途短暫掛上又拿開不會被「累計」到下次警報。
 * Hook 端**不負責**判斷「危險區 / 安全區」與「兩支 Hook 同時異常」這類聚合邏輯，那是 Belt 的職責。Hook 只忠實回報自己的物理狀態。
 
@@ -89,7 +89,7 @@
 
 * Belt（或維護用 Web BLE Console）可以透過 RX characteristic 寫入 **17 byte** `hook_downlink_command_struct_v2`：
   * `system_cycle_time`（1B）：警報窗口秒數（1~30）。
-  * `advertising_duration`（1B）：**RESERVED / ABANDONED** — v0 韌體曾用來控制廣播持續時間，always-on 架構下不再使用，僅作為 17 byte 協議的相容欄位保留。
+  * `flags`（1B）：旗標位元組（v3 起；v2 為已棄用的 `advertising_duration`，同位元組）。bit `0x80` = `IN_SAFE_ZONE`，Hook 收到後會 pin 住 `not_detected_counter` 為 0；其餘 bit 保留。`flags` 為 transient 不寫入 flash。詳見 [Belt-Hook 參數協定](../belt/parameter_protocol.md) §3。
   * X / Y / Z 三軸（各 5B）：`sensing_type`、`sensitivity_high`、`sensitivity_low`。
 * Hook 收到設定包後：
   * 長度不符 → 回 `0x01` NACK + 實際長度，**不寫入** flash。
