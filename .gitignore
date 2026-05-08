@@ -1,0 +1,19 @@
+# Internal-only paths that must never reach this public repo. Belt-and-
+# braces against accidental copy from the source projects.
+**/decision_log.md
+**/underconfirmissues.md
+**/open_issues.md
+**/status.md
+**/work_log_*.md
+**/new_project_checklist.md
+**/project_bootstrap.md
+**/project_standards.md
+**/references.md
+**/temp/
+**/.pio/
+**/.vscode/
+
+# OS / editor noise
+.DS_Store
+*.swp
+*~
