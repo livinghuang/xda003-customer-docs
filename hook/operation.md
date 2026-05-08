@@ -53,14 +53,14 @@
   * `not_detected_counter`：上次正常掛接到現在已連續多少**秒**沒看到金屬（0~255 上限）。後台用這個欄位分析「作業員多久沒掛回」。
   * `status`：0 = 正常掛接；1 = 警報。
 * 整段判斷是**時間窗口式**（基於 `millis()`），不是計數器式 — 不論主迴圈或 mag task 跑多快，警報觸發時間都以「實際秒數」為準。
-* **SAFE-zone grace window（v3 起）**：當 Belt 偵測到作業員身處安全區並透過 17 byte 寫入指示 `flags = IN_SAFE_ZONE`（見 §2.5）時，Hook 會把 `not_detected_counter` 與 `status` **強制釘在 0**，並同步刷新 `last_metal_seen_ms` 為當下。grace window 預設 10 秒；只要 Belt 持續每 3 秒重送 flag 就會不斷續期。Belt 一旦離開安全區（停止送 flag），window 自然到期、Hook 回到正常磁場判斷邏輯，且因為 `last_metal_seen_ms` 剛被刷新，計時是「從 0 開始」 — 作業員從休息區走回危險區時拿到完整的 `system_cycle_time` 緩衝，不會被休息期間累積的 counter 立即觸發警報。
+* **SAFE-zone grace window（v3 起）**：當 Belt 偵測到作業員身處安全區並透過 17 byte 寫入指示 `flags = IN_SAFE_ZONE`（見 §2.5）時，Hook 會把 `not_detected_counter` 與 `status` **強制釘在 0**，並同步刷新 `last_metal_seen_ms` 為當下。grace window 預設 10 秒；只要 Belt 持續每 3 秒重送 flag 就會不斷續期。Belt 一旦離開安全區（停止送 flag），window 自然到期、Hook 回到正常磁場判斷邏輯，且因為 `last_metal_seen_ms` 剛被刷新，計時是「從 0 開始」 — 作業員從休息區走回危險區時拿到完整的 `alarm_window_s` 緩衝，不會被休息期間累積的 counter 立即觸發警報。
 
 ***
 
 #### 2.3 警報邏輯（Alarm）
 
-* **觸發條件**：連續 `system_cycle_time` 秒內**完全沒偵測到金屬**就進入警報狀態（`status = 1`）。
-  * `system_cycle_time` 預設 10 秒，可由 Belt（或 Web BLE Console）透過 17 byte 設定包寫入 1~30 秒之間任何值。
+* **觸發條件**：連續 `alarm_window_s` 秒內**完全沒偵測到金屬**就進入警報狀態（`status = 1`）。
+  * `alarm_window_s` 預設 10 秒，可由 Belt（或 Web BLE Console）透過 17 byte 設定包寫入 1~30 秒之間任何值。
   * 寫入後立即生效，並透過 LittleFS 持久保存，重開機後仍沿用。
 * **警報行為**：
   * 兩顆 LED（`pLed`、`pLed1`）同步亮起，提醒作業員「這支 Hook 沒有掛在合格金屬上」。
@@ -77,7 +77,7 @@
 
 | Type | 內容 | 觸發 |
 |------|------|------|
-| `0x00` | + 17B 實際儲存的設定值 | client 寫入長度正確的設定 → ACK，client 可比對是否被韌體 clamp（例如 `system_cycle_time` 超出 1~30 範圍會被改成預設值） |
+| `0x00` | + 17B 實際儲存的設定值 | client 寫入長度正確的設定 → ACK，client 可比對是否被韌體 clamp（例如 `alarm_window_s` 超出 1~30 範圍會被改成預設值） |
 | `0x01` | + 1B 實際收到的長度 | client 寫入長度錯誤 → NACK |
 | `0x02` | + 6B int16 X / Y / Z（little-endian） | 每 500 ms 自動推送磁場原始值，可用於現場校正 / 即時觀測 |
 | `0x03` | + status + counter + batt_level + batt_mode | 每 1 秒推送 Hook 當前狀態 |
@@ -90,13 +90,13 @@
 #### 2.5 設定下發（從 Belt / Web BLE Console）
 
 * Belt（或維護用 Web BLE Console）可以透過 RX characteristic 寫入 **17 byte** `hook_downlink_command_struct_v2`：
-  * `system_cycle_time`（1B）：警報窗口秒數（1~30）。**值 0 為哨兵**，代表「flag-only 寫入」 — Hook 不更動已儲存的 settings，只處理 `flags` 欄位副作用，方便 Belt 在不知道當下完整 settings 的情況下單純通知狀態（v3 起）。
+  * `alarm_window_s`（1B）：警報窗口秒數（1~30）。**值 0 為哨兵**，代表「flag-only 寫入」 — Hook 不更動已儲存的 settings，只處理 `flags` 欄位副作用，方便 Belt 在不知道當下完整 settings 的情況下單純通知狀態（v3 起）。
   * `flags`（1B）：旗標位元組（v3 起；v2 為已棄用的 `advertising_duration`，同位元組）。bit `0x80` = `IN_SAFE_ZONE`，Hook 收到後設定 SAFE-zone grace window（10 秒）並把 `not_detected_counter` / `status` 釘在 0；其餘 bit 保留。`flags` 為 transient — Hook 寫入 flash 前固定歸 0，不持久化。Belt 在安全區期間會每 3 秒重送，維持 grace window 持續續期；Belt 離開或失聯後 window 自然到期。詳見 [Belt-Hook 參數協定](../belt/parameter_protocol.md) §3。
   * X / Y / Z 三軸（各 5B）：`sensing_type`、`sensitivity_high`、`sensitivity_low`。
 * Hook 收到設定包後：
   * 長度不符 → 回 `0x01` NACK + 實際長度，**不寫入** flash。
-  * 長度正確且 `system_cycle_time != 0` → 寫入 LittleFS，立即生效（不需重開機），並回 `0x00` ACK + 實際儲存值（含 firmware-side clamp 後的最終值）讓 client 確認。
-  * 長度正確且 `system_cycle_time == 0` → 走 flag-only path：**不更動 flash**，僅處理 flags 副作用；同樣回 `0x00` ACK + 當下實際儲存值（settings 沒變動）。
+  * 長度正確且 `alarm_window_s != 0` → 寫入 LittleFS，立即生效（不需重開機），並回 `0x00` ACK + 實際儲存值（含 firmware-side clamp 後的最終值）讓 client 確認。
+  * 長度正確且 `alarm_window_s == 0` → 走 flag-only path：**不更動 flash**，僅處理 flags 副作用；同樣回 `0x00` ACK + 當下實際儲存值（settings 沒變動）。
 
 ***
 

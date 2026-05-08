@@ -44,6 +44,7 @@ fi
 declare -a MD_PAIRS=(
   "$BELT_SRC/docs/belt_operation.md::belt/operation.md"
   "$BELT_SRC/docs/belt_hook_parameter_protocol.md::belt/parameter_protocol.md"
+  "$BELT_SRC/docs/parameter_protocol_v2_vs_v3.md::belt/parameter_protocol_v2_vs_v3.md"
   "$HOOK_SRC/docs/hook_operation.md::hook/operation.md"
 )
 

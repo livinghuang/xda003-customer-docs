@@ -44,7 +44,7 @@ Serial monitor (115200 baud)：
 
 ```
 ======hook  initial settings=======
-system_cycle_time: 10
+alarm_window_s: 10
 X sensing_type: EXCLUSIVE
 X sensitivity_low: 0  high: 32767
 Y sensing_type: EXCLUSIVE

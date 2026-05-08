@@ -15,6 +15,7 @@
 |------|------|------|
 | [belt/operation.md](belt/operation.md) · [PDF](belt/operation.pdf) | 工地作業員、場域管理者 | Belt 整體運作邏輯、區域定位、告警流程、低功耗 / 充電行為 |
 | [belt/parameter_protocol.md](belt/parameter_protocol.md) · [PDF](belt/parameter_protocol.pdf) | 後台 / LoRa 平台整合商 | LoRaWAN fPort=30 設定協定（v3）、wire 結構、payload 範例、向後相容矩陣 |
+| [belt/parameter_protocol_v2_vs_v3.md](belt/parameter_protocol_v2_vs_v3.md) · [PDF](belt/parameter_protocol_v2_vs_v3.pdf) | v2 後台升級者 | v2 ↔ v3 欄位對照、wire ABI 變動、升級檢查清單 |
 | [belt/flashing.md](belt/flashing.md) | 出廠 / 維修人員 | Belt 韌體燒錄三種方式（esptool、PlatformIO、Arduino IDE） |
 
 ## Hook（掛鉤端）
