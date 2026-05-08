@@ -189,15 +189,3 @@
 
 ***
 
-### 附錄 A. 已知尚未對齊的行為（待修正 / 待補完）
-
-> 本文件描述的是 **Hook 的設計目標行為**。下表列出目前韌體實作與本文件不一致的地方，後續會逐一對齊。
-
-| # | 章節 | 文件描述 | 目前韌體實作 | 處理方向 |
-|---|------|----------|--------------|----------|
-| 1 | 2.5 設定下發 `advertising_duration` | RESERVED / ABANDONED，僅作 17 byte 協議 padding | 與文件一致：欄位仍接受寫入但韌體不使用 | — |
-| 2 | 4.1 充電 cycle 不掛 OTA | 充電 cycle 視窗短不適合 OTA；FULL awake loop 才掛 OTA | 與文件一致 | — |
-| 3 | 6. POWER_SAVING | 電池過低時應限縮 BLE / 磁感頻率 | Phase 1 僅在 main loop 印 `[mode] LOW BATTERY`，BLE 與 mag task 仍以正常頻率運作 | Phase 2 補上閾值切換：低電量時拉長 mag task 週期 + 延長 BLE 廣播間隔 |
-| 4 | 2.2 三軸 OR 偵測 | 任何一軸 INCLUSIVE / EXCLUSIVE 命中即視為偵測到金屬 | 與韌體一致；但 INCLUSIVE / EXCLUSIVE 的預設值是否符合實際吊掛動作仍是 [`docs/open_issues.md`](open_issues.md) 中的開放問題 | 量產前需以實鉤測試各軸動作範圍，調整預設值 |
-| 5 | 1. 系統啟動 / 量產 | `HOOK-XXXXXX` 命名不需逐台寫入；hook ID 取自 efuse MAC | 與韌體一致 | 仍待決定：`docs/open_issues.md` 中「量產時的初始 BLE name / hook ID 來源」是否要保留可由治具覆寫的後門 |
-| 6 | 3. 閒置省電 deep sleep | 沒 client 連時 4 秒廣播 + 1 秒 deep sleep + reboot | 與韌體一致；`last_metal_seen_ms` 不持久化導致警報計時每次 reboot 重置 — 這是 by design，但需在跨團隊文件中明示，避免 Belt 端誤期待「Hook 即使無連線也會持續累積警報窗口」 | 在 Belt repo 的 GATT 合約附註此行為；不改 Hook |
