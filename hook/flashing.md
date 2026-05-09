@@ -2,10 +2,18 @@
 
 ## 檔案
 
-`xda003h-hook-<git-sha>-<YYYYMMDD>.bin` — 已合併好的單一燒錄檔
-（包含 bootloader + partition table + boot app + main firmware）。
+每個釋出版本提供 **兩個** 變體：
 
-整顆檔案直接寫到 ESP32-C3 flash 的 **offset 0x0**，不需要分段。
+| 檔名 | 用途 | 內容 |
+|------|------|------|
+| `xda003h-hook-<sha>-<YYYYMMDD>-FULL.bin` | **USB 燒錄**（首次安裝、出廠、維修、回復出廠） | bootloader + partition table + boot_app0 + factory firmware（合併後直接寫 offset 0x0） |
+| `xda003h-hook-<sha>-<YYYYMMDD>-app.bin` | **BLE OTA 推送**（透過 Web Bluetooth 主控台 / `nimbleota.py`） | 純 firmware app（factory partition 內容），由裝置端 NimBLEOta 接收後自動寫入 OTA partition |
+
+**選哪一個？**
+- 從來沒 OTA 過的全新裝置 / 想完全重置 / 維修：用 `-FULL.bin` 走 USB（見下文方式 A/B/C）
+- 已部署在現場、想透過藍牙無線升級：用 `-app.bin` 走 BLE OTA（見 [hook_operation.md §5](../../docs/hook_operation.md) 之「韌體無線更新」段）
+
+> **注意**：曾經透過 BLE OTA 升過韌體的 Hook，再用 USB 燒入時請務必選 `-FULL.bin`（merged bin 內含預設 ota_data，bootloader 會改 boot factory 而不是舊 OTA app）；或先 `esptool.py erase_flash` 再燒。詳見最後一節。
 
 ## 硬體需求
 
@@ -24,7 +32,7 @@ pip install esptool
 esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
   --before default_reset --after hard_reset \
   write_flash --flash_mode dio --flash_freq 80m --flash_size 4MB \
-  0x0 xda003h-hook-XXXXXXX-YYYYMMDD.bin
+  0x0 xda003h-hook-XXXXXXX-YYYYMMDD-FULL.bin
 ```
 
 如果連不上需要進 download mode：按住 BOOT → 短按 RESET → 放開 BOOT。
@@ -74,16 +82,21 @@ BLE 廣播名稱 `HOOK-XXYYZZ`（XX/YY/ZZ 為 chip ID 前 3 byte）。
 
 **Q：esptool 顯示成功但 Hook 跑舊韌體（DIS 版本不對）**
 A：先前用過 BLE OTA 的裝置，flash 的 `ota_data` partition 會繼續指向某個 OTA slot，
-USB 燒到 factory partition (0x10000) 不會生效——bootloader 看 ota_data 還是 boot
-OTA slot。**燒之前一定要 erase_flash 一次**，或是直接用 `-FULL.bin` 那版（含
-bootloader + partitions + app 合併到 0x0，會把 ota_data 一併重設）。
+USB 燒到 factory partition (0x10000) 不會生效 — bootloader 看 ota_data 還是 boot
+OTA slot。
 
-```bash
-esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX erase_flash
-# 接著用 app-only bin
-esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
-  write_flash 0x0 xda003h-hook-XXXXXXX-YYYYMMDD.bin
-```
+**修法（兩擇一）**：
+
+1. **用 `-FULL.bin`** — merged bin 含 bootloader + partition table + boot_app0 + factory app；其中 partition table 把 ota_data 重設為「未指定」，bootloader 因此會回去 boot factory，等價於 erase_flash 的效果。建議優先用這個方法，一次燒到位。
+
+2. **先 erase_flash 再燒**：
+   ```bash
+   esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX erase_flash
+   esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
+     write_flash 0x0 xda003h-hook-XXXXXXX-YYYYMMDD-FULL.bin
+   ```
+
+> **`-app.bin` 不要直接 USB 燒到 0x0**，那是 BLE OTA 專用 — `-app.bin` 沒有 bootloader / partition table，硬燒到 0x0 會 brick。USB 燒錄永遠用 `-FULL.bin`。
 
 **Q：Hook 沒辦法被 Belt 連上**
 A：確認：

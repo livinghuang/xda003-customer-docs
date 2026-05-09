@@ -2,10 +2,18 @@
 
 ## 檔案
 
-`xda003b-belt-<git-sha>-<YYYYMMDD>.bin` — 已合併好的單一燒錄檔
-（包含 bootloader + partition table + boot app + main firmware）。
+每個釋出版本提供 **兩個** 變體：
 
-整顆檔案直接寫到 ESP32-C3 flash 的 **offset 0x0**，不需要分段。
+| 檔名 | 用途 | 內容 |
+|------|------|------|
+| `xda003b-belt-<sha>-<YYYYMMDD>-FULL.bin` | **USB 燒錄**（首次安裝、出廠、維修、回復出廠） | bootloader + partition table + boot_app0 + factory firmware（合併後直接寫 offset 0x0） |
+| `xda003b-belt-<sha>-<YYYYMMDD>-app.bin` | **BLE OTA 推送**（透過 Web Bluetooth 主控台 / NimBLEOta） | 純 firmware app（factory partition 內容），由裝置端 NimBLEOta 接收後自動寫入 OTA partition |
+
+**選哪一個？**
+- 從來沒 OTA 過的全新裝置 / 想完全重置 / 維修：用 `-FULL.bin` 走 USB（見下文方式 A/B/C）
+- 已部署在現場、想透過藍牙無線升級：用 `-app.bin` 走 BLE OTA（見 [hook_operation.md §5](../../docs/belt_operation.md) 之「韌體無線更新」段）
+
+> **注意**：曾經透過 BLE OTA 升過韌體的裝置，再用 USB 燒 `-FULL.bin` **不會自動覆蓋 OTA partition**，bootloader 仍會 boot 舊的 OTA app。要強制回到 factory 必須先 `esptool.py erase_flash`，或用 `-FULL.bin`（merged bin 內含預設 ota_data，會讓 bootloader 改 boot factory）— 兩者擇一即可。詳見最後一節「常見問題」。
 
 ## 硬體需求
 
@@ -28,7 +36,7 @@ pip install esptool
 esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
   --before default_reset --after hard_reset \
   write_flash --flash_mode dio --flash_freq 80m --flash_size 4MB \
-  0x0 xda003b-belt-XXXXXXX-YYYYMMDD.bin
+  0x0 xda003b-belt-XXXXXXX-YYYYMMDD-FULL.bin
 ```
 
 把 `/dev/cu.usbserial-XXXX` 換成實際的 serial port（macOS：`ls /dev/cu.usbserial-*`；Windows：裝置管理員 → COM port）。
@@ -38,7 +46,7 @@ esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
 1. 從 <https://www.espressif.com/en/support/download/other-tools> 下載 Flash Download Tool
 2. 開啟 → 選 **ESP32-C3** chip
 3. 設定：
-   - 在「SPIDownload」分頁，把 `xda003b-belt-XXXXXXX.bin` 拖進去，offset 填 `0x0`
+   - 在「SPIDownload」分頁，把 `xda003b-belt-XXXXXXX-YYYYMMDD-FULL.bin` 拖進去，offset 填 `0x0`
    - SPI SPEED: **80 MHz**
    - SPI MODE: **DIO**
    - FLASH SIZE: **32Mbit**（= 4MB）
@@ -52,7 +60,7 @@ esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
 
 1. 開啟 <https://espressif.github.io/esptool-js/>
 2. **Connect** → 選 Belt 的 COM port
-3. **Add File** → 選 `xda003b-belt-XXXXXXX.bin`，offset `0x0`
+3. **Add File** → 選 `xda003b-belt-XXXXXXX-YYYYMMDD-FULL.bin`，offset `0x0`
 4. **Program** → 等完成 → **Reset**
 
 ## 燒錄成功確認
@@ -92,16 +100,18 @@ boot → 跑舊韌體。
 
 **症狀**：燒錄程序回 SUCCESS、serial 也印新韌體 boot banner，但 DIS 顯示舊版號、LoRa 上行也是舊 DevAddr。
 
-**修法**：用 app-only bin 燒之前先一次 erase_flash（會把 ota_data 一起清掉）：
+**修法（兩擇一）**：
 
-```bash
-esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX erase_flash
-# 接著正常燒錄
-esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
-  write_flash 0x0 xda003b-belt-XXXXXXX-YYYYMMDD.bin
-```
+1. **用 `-FULL.bin`** — 含 bootloader + partition table + boot_app0 + factory app 的合併版；其中 partition table 把 ota_data 重設為「未指定」，bootloader 因此會回去 boot factory，等價於 erase_flash 的效果。建議優先用這個方法，一次燒到位。
 
-**或乾脆用 FULL bin**（檔名帶 `-FULL.bin` 那個，含 bootloader + partitions + app 合併到 0x0）—— FULL bin 的 partitions section 預設 ota_data 為「未指定」，bootloader 會回去 boot factory，等價於 erase_flash 的效果。
+2. **先 erase_flash 再燒**：
+   ```bash
+   esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX erase_flash
+   esptool.py --chip esp32c3 --port /dev/cu.usbserial-XXXX --baud 460800 \
+     write_flash 0x0 xda003b-belt-XXXXXXX-YYYYMMDD-FULL.bin
+   ```
+
+> **`-app.bin` 不要直接 USB 燒到 0x0**，那是 BLE OTA 專用 — `-app.bin` 沒有 bootloader / partition table，硬燒到 0x0 會 brick。USB 燒錄永遠用 `-FULL.bin`。
 
 **Q：燒錄成功但 Belt 開機卡住**
 A：可能是 LittleFS partition 沒清空，舊資料 corrupt。重燒一次並加 `--erase-all`：
