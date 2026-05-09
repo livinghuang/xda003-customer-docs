@@ -91,7 +91,7 @@
 
 * Belt（或維護用 Web BLE Console）可以透過 RX characteristic 寫入 **17 byte** `hook_downlink_command_struct_v3`：
   * `alarm_window_s`（1B）：警報窗口秒數（1~30）。**值 0 為哨兵**，代表「flag-only 寫入」 — Hook 不更動已儲存的 settings，只處理 `flags` 欄位副作用，方便 Belt 在不知道當下完整 settings 的情況下單純通知狀態（v3 起）。
-  * `flags`（1B）：旗標位元組（v3 起；v2 為已棄用的 `advertising_duration`，同位元組）。bit `0x80` = `IN_SAFE_ZONE`，Hook 收到後設定 SAFE-zone grace window（10 秒）並把 `not_detected_counter` / `status` 釘在 0；其餘 bit 保留。`flags` 為 transient — Hook 寫入 flash 前固定歸 0，不持久化。Belt 在安全區期間會每 3 秒重送，維持 grace window 持續續期；Belt 離開或失聯後 window 自然到期。詳見 [Belt-Hook 參數協定](../belt/parameter_protocol.md) §3。
+  * `flags`（1B）：v3 新增的旗標位元組。**byte 1 在 v2 是 `advertising_duration`（BLE 廣播時間設定），v3 改成廣播 always-on 寫死於韌體，這個 byte 因此釋出重新指派為 `flags`** — 不是改名而是 byte 重用。bit `0x80` = `IN_SAFE_ZONE`，Hook 收到後設定 SAFE-zone grace window（10 秒）並把 `not_detected_counter` / `status` 釘在 0；其餘 bit 保留。`flags` 為 transient — Hook 寫入 flash 前固定歸 0，不持久化。Belt 在安全區期間會每 3 秒重送，維持 grace window 持續續期；Belt 離開或失聯後 window 自然到期。詳見 [Belt-Hook 參數協定](../belt/parameter_protocol.md) §3。
   * X / Y / Z 三軸（各 5B）：`sensing_type`、`sensitivity_high`、`sensitivity_low`。
 * Hook 收到設定包後：
   * 長度不符 → 回 `0x01` NACK + 實際長度，**不寫入** flash。

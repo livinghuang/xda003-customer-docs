@@ -2,7 +2,7 @@
 
 > **適用版本**：Belt v_new（2026-05-09 起的韌體）+ Hook v_new
 >
-> v3 與 v2 的差異：把原本保留的 `advertising_duration` 欄位重新定義為 `flags` 旗標位元組，新增 `HOOK_SETTINGS_FLAG_IN_SAFE_ZONE` 與「flag-only write」哨兵語意，用於支援 SAFE-zone 通知與旁路通道。**Wire ABI 與 v2 完全相容**（payload size、欄位偏移皆未動），既有後台不需更動也能繼續推 v2 設定，只是無法觸發 v3 新增的副作用。
+> v3 與 v2 的關鍵差異：v2 hook 把 byte 0 / byte 1 用來下發「系統循環秒數」與「BLE 廣播時間」；v3 hook 把這兩件事改成韌體寫死，那兩個 byte 因此釋出，**重新指派為全新欄位** `alarm_window_s` 與 `flags`，搭配新的「BLE-connected 即時訊息交換」路徑（例如 SAFE-zone 通知）。**Wire ABI 與 v2 完全相容** — payload 長度、byte 偏移皆未動 — 但 byte 0 / byte 1 的「意義」整個換了，不是改名而是 byte 重用。詳細對照見 [parameter_protocol_v2_vs_v3.md](parameter_protocol_v2_vs_v3.md)。
 
 ---
 
@@ -77,8 +77,8 @@ typedef struct PACKED hook_sensing_axis_struct
 
 typedef struct PACKED hook_settings_struct_v3
 {
-    uint8_t alarm_window_s;    // 1–30 秒，0 為哨兵值（見 §3）
-    uint8_t flags;                // ← v3 重新定義（v2 為 advertising_duration）
+    uint8_t alarm_window_s;       // 1–30 秒，0 為哨兵值（見 §3）；v3 新欄位（v2 此 byte 為 system_cycle_time）
+    uint8_t flags;                // 旗標位元組；v3 新欄位（v2 此 byte 為 advertising_duration）
     hook_sensing_axis_struct_t x;
     hook_sensing_axis_struct_t y;
     hook_sensing_axis_struct_t z;
@@ -87,11 +87,11 @@ typedef struct PACKED hook_settings_struct_v3
 
 | 欄位 | 大小 | 說明 |
 |------|------|------|
-| `alarm_window_s` | 1 | Hook alarm window（秒）。值範圍 1–30，超過或為 0 會被 Hook 端 clamp。**值 0 在 v3 起賦予新語意（哨兵）**，見 §3 |
-| `flags` | 1 | **v3 起為旗標位元組**（v2 為 `advertising_duration`，已棄用）。各 bit 定義見 §3。**transient 不持久化** — Hook 收到後執行 side-effect，存進 flash 時固定為 0 |
+| `alarm_window_s` | 1 | **v3 新欄位**（v2 此 byte 為 `system_cycle_time`，v3 韌體不再支援由後台調整 system cycle，改成寫死在韌體內）。Hook alarm window（秒），1–30；超過會被 Hook 端 clamp。**值 0** 為哨兵 = flag-only write，見 §3 |
+| `flags` | 1 | **v3 新欄位**（v2 此 byte 為 `advertising_duration`，v3 韌體 BLE 廣播改成 always-on 寫死）。各 bit 定義見 §3。**transient 不持久化** — Hook 收到後執行 side-effect，存進 flash 時固定為 0 |
 | `x` / `y` / `z` | 各 5 | 三軸磁場感測參數：`sensing_type` + `sensitivity_high` + `sensitivity_low`（uint16 little-endian） |
 
-> **v2 → v3 ABI 相容**：`flags` 與 `advertising_duration` 同位元組同寬度。舊版後台若在這個 byte 填 0、1、2 等保留值，bit `0x80` 不會被誤觸發，行為等同 v2。
+> **v2 → v3 ABI 相容**：`alarm_window_s` / `flags` 在 byte 0 / byte 1 的位置與寬度跟 v2 的 `system_cycle_time` / `advertising_duration` 完全相同。v2 後台若送出 byte 1 = 1 或 2 等典型 `advertising_duration` 值，bit `0x80` 不會被誤觸發，所以 v3 hook 不會被誤判為 SAFE-zone；byte 0 = 1–30 也會被 v3 hook 視為合法 alarm_window_s。**反向不安全**：v3 後台送 `byte 0 = 0` flag-only write 給 v2 hook 會被解讀為 `system_cycle_time = 0`，hook clamp + 把 XYZ 軸全寫成 0，請務必先燒 hook 再上 v3 後台。
 
 ### 2.4 完整 74-byte payload
 
