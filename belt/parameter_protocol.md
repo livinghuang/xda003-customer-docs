@@ -24,29 +24,31 @@
 ### 2.1 Belt header（24 bytes）
 
 ```c
-struct PACKED belt_downlink_header_v2
+struct PACKED belt_downlink_header_v3
 {
-    uint8_t  reboot_and_ignore_reed;   // 1
-    uint8_t  reset;                    // 1
-    uint16_t belt_sleep_duration;      // 2
-    uint16_t uplink_report_interval;   // 2
-    uint8_t  beacon_scan_duration;     // 1
-    uint8_t  beacon_scan_times;        // 1
-    char     beacon_name_filter[8];    // 8
-    char     hook_name_filter[8];      // 8
+    uint8_t  reboot;                    // 1   != 0 → reboot
+    uint8_t  reset;                     // 1   != 0 → factory reset (wipe NVS + LittleFS)
+    uint16_t power_test_sleep_s;        // 2   > 0 → one-shot deep sleep N seconds (LE)
+    uint16_t uplink_report_interval_s;  // 2   1–3600 LoRa uplink period seconds (LE), persisted
+    uint8_t  reserved_a;                // 1   was beacon_scan_duration (abandoned in v3)
+    uint8_t  beacon_smooth_alpha_x100;  // 1   1–100 → EWMA α 0.01–1.00, persisted
+    uint8_t  reserved_b[8];             // 8   was beacon_name_filter (abandoned)
+    uint8_t  reserved_c[8];             // 8   was hook_name_filter (abandoned)
 };
 ```
 
 | 欄位 | 大小 | 說明 |
 |------|------|------|
-| `reboot_and_ignore_reed` | 1 | 複合控制：`1` = 立即重開機（最高優先）；`200` / `201` = 不重開機，停用 / 啟用磁簧（v_new 已棄用磁簧偵測但仍接受指令）；`0` = 無動作 |
-| `reset` | 1 | 重設旗標。保留位元；本欄位非 0 時依後台版本另行定義 |
-| `belt_sleep_duration` | 2 | Belt 一般作業循環中的休眠秒數（little-endian） |
-| `uplink_report_interval` | 2 | 一般狀態定時上傳間隔（秒，little-endian），1–3600 |
-| `beacon_scan_duration` | 1 | 每次 BLE beacon 掃描秒數 |
-| `beacon_scan_times` | 1 | 每個循環的掃描次數 |
-| `beacon_name_filter` | 8 | beacon 名稱前綴過濾（預設 `abeacon`） |
-| `hook_name_filter` | 8 | Hook 名稱前綴過濾（預設 `SQ`，v_new 改 `HOOK-` 但仍接受 `SQ` 以相容） |
+| `reboot` | 1 | 非 0 → 立即重開機（v2 此 byte 為 `reboot_and_ignore_reed`，含已棄用的磁簧開關控制） |
+| `reset` | 1 | 非 0 → factory reset（清除 NVS + LittleFS 中的 beacon whitelist 後重開機） |
+| `power_test_sleep_s` | 2 | 大於 0 → 進入 deep sleep 該秒數做電流量測，喚醒等同重開機（little-endian）。**不持久化**。v2 此欄位為 `belt_sleep_duration`（系統循環秒數，v_new always-on 後重新指派為一次性測試觸發） |
+| `uplink_report_interval_s` | 2 | LoRa 上行週期秒數，1–3600（little-endian），持久化。v2 此欄位為 `uplink_report_interval`，語意未變僅補上 `_s` 單位後綴 |
+| `reserved_a` | 1 | 保留。v2 此 byte 為 `beacon_scan_duration`（單次掃描秒數），v_new 連續掃描不再按 cycle，已棄用 |
+| `beacon_smooth_alpha_x100` | 1 | 1–100 → BLE-RSSI EWMA α 0.01–1.00，持久化。v2 此 byte 為 `beacon_scan_times`（每循環掃描次數），v1 起已偷偷重用為 alpha；v3 給予正式名稱 |
+| `reserved_b[8]` | 8 | 保留。v2 此區塊為 `beacon_name_filter`（beacon 名稱前綴過濾），v3 改用 UUID 比對，已棄用 |
+| `reserved_c[8]` | 8 | 保留。v2 此區塊為 `hook_name_filter`（Hook 名稱前綴過濾），v3 改用 6-byte ID 綁定，已棄用 |
+
+> **v2 → v3 byte 重用 / 棄用**：wire 24 bytes 完全不變，v2 後台不需修改 payload 長度也能繼續推 — 但「scan_times → alpha_x100」這個 byte 的解讀已從「掃描次數」變成「α × 100」，v2 後台若仍按舊語意填 1–10 之類的小整數，會被 v3 belt 解讀為非常低的 alpha（~0.01–0.10 強平滑），請改用 v3 命名。
 
 ### 2.2 Hook 區塊（25 bytes，最多 2 支）
 
@@ -96,9 +98,9 @@ typedef struct PACKED hook_settings_struct_v3
 ### 2.4 完整 74-byte payload
 
 ```c
-struct PACKED belt_downlink_command_struct_v2
+struct PACKED belt_downlink_command_struct_v3
 {
-    belt_downlink_header_v2 header;          // 24 bytes
+    belt_downlink_header_v3 header;          // 24 bytes
     hook_downlink_command_struct_v3 hook[2]; // 50 bytes
 };
 ```
@@ -169,23 +171,28 @@ Belt 收到後會比對 ID、轉送這個 17-byte block 到對應 Hook 的 BLE R
 
 ## 4. 範例 payload
 
-### 4.1 純更新 Belt 設定（24 bytes）
+### 4.1 純更新 Belt 設定（24 bytes，header only）
+
+把 LoRa 上行週期改成 60 秒、smoothing α 設為 0.20、然後重開機：
 
 ```
-01 00 00 1E 00 3C 04 02 61 62 65 61 63 6F 6E 00 53 51 00 00 00 00 00 00
-│  │  └──┘ └──┘ │  │  └──────"abeacon"──────┘ └────"SQ"─────┘
-│  │   │    │   │  └─ beacon_scan_times = 2
-│  │   │    │   └──── beacon_scan_duration = 4 s
-│  │   │    └─ uplink_report_interval = 60 s
-│  │   └─ belt_sleep_duration = 30 s
+01 00 00 00 3C 00 00 14 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+│  │  └──┘ └──┘ │  │  └──────── reserved_b[8] ────────┘└── reserved_c[8] ──┘
+│  │   │    │   │  └─ beacon_smooth_alpha_x100 = 0x14 (20 → α 0.20)
+│  │   │    │   └──── reserved_a (was beacon_scan_duration; 必須填 0)
+│  │   │    └─ uplink_report_interval_s = 0x003C = 60 秒
+│  │   └─ power_test_sleep_s = 0（不觸發 deep-sleep 測試）
 │  └─ reset = 0
-└─ reboot_and_ignore_reed = 1（重開機）
+└─ reboot = 1（重開機）
 ```
 
 ### 4.2 設定 Belt + 一支 Hook 的感測參數（74 bytes）
 
+不重開機、上行週期沿用、α 不動，只改 hook[0] 的 alarm_window_s + XYZ 軸：
+
 ```
-header (24B):  00 00 00 1E 00 3C 04 02 61 62 65 61 63 6F 6E 00 53 51 00 00 00 00 00 00
+header (24B):  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+                  (整段 header 全 0 → 不觸發任何 belt-side 動作)
 hook[0] (25B): DC 06 75 F8 2C C8 00 00 0A 00 01 64 00 32 00 01 64 00 32 00 01 64 00 32 00
                 └─── id ──────┘ └rsv┘ │  │  └────────── x / y / z 各 5 byte ──────────┘
                                        │  └─ flags = 0（不觸發任何 side-effect）
@@ -196,7 +203,7 @@ hook[1] (25B): 00 00 00 00 00 00 00 00 ... (id 全 0 → Belt 忽略)
 ### 4.3 後台手動 reset hook[0] 的 counter（74 bytes）
 
 ```
-header (24B):  00 00 00 1E 00 3C 04 02 ...（沿用既有設定即可）
+header (24B):  00 00 00 00 00 00 00 00 ... (header 全 0)
 hook[0] (25B): DC 06 75 F8 2C C8 00 00 00 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
                 └─── id ──────┘ └rsv┘ │  │
                                        │  └─ flags = 0x80 (IN_SAFE_ZONE)
@@ -211,6 +218,12 @@ hook[1] (25B): 00 00 00 00 00 00 00 00 ...
 | 條件 | Belt 端行為 | Hook 端行為 |
 |------|-------------|-------------|
 | payload 長度 ≠ 24 / 74 | 整包丟棄 | — |
+| `header.reset != 0` | 清 NVS + LittleFS + 重開機（最高優先） | — |
+| `header.reboot != 0`（且 reset = 0） | 立即重開機 | — |
+| `header.power_test_sleep_s > 0` | Deep sleep 該秒數，喚醒等同重開機 | — |
+| `header.uplink_report_interval_s > 0` | 套用為 LoRa 上行週期，持久化到 NVS | — |
+| `header.beacon_smooth_alpha_x100 > 100` | clamp 到 100（α = 1.00） | — |
+| `header.reserved_a / b / c` | 完全忽略 | — |
 | Hook ID 不在綁定列表 | 該 hook block 不轉送 | — |
 | `alarm_window_s = 0` | 直接轉送 17 bytes | 觸發 flag-only path，不 persist settings |
 | `alarm_window_s > 30` | 直接轉送 | clamp 回 `DEFAULT_HOOK_CYCLE_TIME / 1000`（10 秒） |
