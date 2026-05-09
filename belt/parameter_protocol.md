@@ -51,11 +51,11 @@ struct PACKED belt_downlink_header_v2
 ### 2.2 Hook 區塊（25 bytes，最多 2 支）
 
 ```c
-struct PACKED hook_downlink_command_struct_v2
+struct PACKED hook_downlink_command_struct_v3
 {
     uint8_t  id[6];
     uint16_t reserve;
-    hook_settings_struct_v2_t hook_settings;
+    hook_settings_struct_v3_t hook_settings;
 };                                  // 25 bytes
 ```
 
@@ -65,7 +65,7 @@ struct PACKED hook_downlink_command_struct_v2
 | `reserve` | 2 | 保留欄位，目前全填 `0x0000` |
 | `hook_settings` | 17 | 內嵌的 hook 設定結構，見 §2.3 |
 
-### 2.3 hook_settings_struct_v2_t（17 bytes）— **v3 變更**
+### 2.3 hook_settings_struct_v3_t（17 bytes）— **v3 變更**
 
 ```c
 typedef struct PACKED hook_sensing_axis_struct
@@ -75,14 +75,14 @@ typedef struct PACKED hook_sensing_axis_struct
     uint16_t sensitivity_low;
 } hook_sensing_axis_struct_t;     // 5 bytes
 
-typedef struct PACKED hook_settings_struct_v2
+typedef struct PACKED hook_settings_struct_v3
 {
     uint8_t alarm_window_s;    // 1–30 秒，0 為哨兵值（見 §3）
     uint8_t flags;                // ← v3 重新定義（v2 為 advertising_duration）
     hook_sensing_axis_struct_t x;
     hook_sensing_axis_struct_t y;
     hook_sensing_axis_struct_t z;
-} hook_settings_struct_v2_t;      // 17 bytes
+} hook_settings_struct_v3_t;      // 17 bytes
 ```
 
 | 欄位 | 大小 | 說明 |
@@ -99,7 +99,7 @@ typedef struct PACKED hook_settings_struct_v2
 struct PACKED belt_downlink_command_struct_v2
 {
     belt_downlink_header_v2 header;          // 24 bytes
-    hook_downlink_command_struct_v2 hook[2]; // 50 bytes
+    hook_downlink_command_struct_v3 hook[2]; // 50 bytes
 };
 ```
 

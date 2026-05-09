@@ -11,7 +11,7 @@
 
 ---
 
-## hook_settings_struct_v2_t（17 bytes）— 欄位對照
+## hook_settings_struct_v3_t（17 bytes）— 欄位對照
 
 | Byte | v0 / v1 / v2 名稱 | v3 名稱 | 寬度 | 行為差異 |
 |------|--------------------|----------|------|----------|
@@ -27,7 +27,7 @@
 
 ---
 
-## hook_downlink_command_struct_v2（25 bytes 外層）— 不變
+## hook_downlink_command_struct_v3（25 bytes 外層）— 不變
 
 ```
 byte 0..5    id[6]              hook base MAC（v3 接受 MSB-first 與 LSB-first 任一順序）
