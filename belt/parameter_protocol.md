@@ -44,7 +44,7 @@ struct PACKED belt_downlink_header_v3
 | `power_test_sleep_s` | 2 | 大於 0 → 進入 deep sleep 該秒數做電流量測，喚醒等同重開機（little-endian）。**不持久化**。v2 此欄位為 `belt_sleep_duration`（系統循環秒數，v_new always-on 後重新指派為一次性測試觸發） |
 | `uplink_report_interval_s` | 2 | LoRa 上行週期秒數，1–3600（little-endian），持久化。v2 此欄位為 `uplink_report_interval`，語意未變僅補上 `_s` 單位後綴 |
 | `reserved_a` | 1 | 保留。v2 此 byte 為 `beacon_scan_duration`（單次掃描秒數），v_new 連續掃描不再按 cycle，已棄用 |
-| `beacon_smooth_alpha_x100` | 1 | 1–100 → BLE-RSSI EWMA α 0.01–1.00，持久化。v2 此 byte 為 `beacon_scan_times`（每循環掃描次數），v1 起已偷偷重用為 alpha；v3 給予正式名稱 |
+| `beacon_smooth_alpha_x100` | 1 | 1–100 → BLE-RSSI EWMA α 0.01–1.00，持久化。v2 此 byte 為 `beacon_scan_times`（每循環掃描次數） |
 | `reserved_b[8]` | 8 | 保留。v2 此區塊為 `beacon_name_filter`（beacon 名稱前綴過濾），v3 改用 UUID 比對，已棄用 |
 | `reserved_c[8]` | 8 | 保留。v2 此區塊為 `hook_name_filter`（Hook 名稱前綴過濾），v3 改用 6-byte ID 綁定，已棄用 |
 

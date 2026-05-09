@@ -38,7 +38,7 @@
 | 2–3 | `belt_sleep_duration` (LE) | 系統循環中的休眠秒數 | **`power_test_sleep_s`** (LE) | **重用**：> 0 → 一次性 deep sleep N 秒做電流量測，喚醒等同重開機。NOT persisted。v_new always-on 後原本的「循環 sleep 秒數」概念消失 |
 | 4–5 | `uplink_report_interval` (LE) | LoRa 上行週期秒數 | **`uplink_report_interval_s`** (LE) | 不變，僅補上 `_s` 單位後綴 |
 | 6 | `beacon_scan_duration` | 單次 BLE 掃描秒數 | **`reserved_a`** | **棄用**。v_new 連續掃描，不再分 cycle |
-| 7 | `beacon_scan_times` | 每循環掃描次數 | **`beacon_smooth_alpha_x100`** | **重用**：1–100 → BLE-RSSI EWMA α 0.01–1.00，持久化。**v1 起韌體已偷偷重用，v3 給予正式名稱** |
+| 7 | `beacon_scan_times` | 每循環掃描次數 | **`beacon_smooth_alpha_x100`** | **重用**：1–100 → BLE-RSSI EWMA α 0.01–1.00，持久化 |
 | 8–15 | `beacon_name_filter[8]` | beacon 名稱前綴過濾（"abeacon"） | **`reserved_b[8]`** | **棄用**。v3 改用 UUID 比對，名稱不再參與過濾 |
 | 16–23 | `hook_name_filter[8]` | Hook 名稱前綴過濾（"SQ" / "HOOK-"） | **`reserved_c[8]`** | **棄用**。v3 改用 6-byte ID 綁定，名稱只用於人眼辨識 |
 
