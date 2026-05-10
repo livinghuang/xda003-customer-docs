@@ -155,8 +155,6 @@
   * 50 mV 緩衝避免 LED 在「恆亮」與「心跳閃爍」之間頻繁跳動。
 * **拔線退出**：1 秒 deep sleep → reboot；setup() 讀到 `pCHARGING = LOW`，進入正常運作。
 
-> **為什麼充電期間用 `digitalRead` 而不是 ADC 讀 `pCHARGING`？** 在 chip 持續喚醒的 FULL awake loop 中，重複的 ADC 取樣會把高阻抗的 charger STAT 線拉到 ~1.85 V（sample-hold 電容放電比充電 IC 補回快），造成誤判為「拔線」。`digitalRead` 是高阻抗輸入，不會干擾線上電壓。
-
 ***
 
 ### 5. 韌體無線更新（BLE OTA）
