@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>XDA003H Web BLE Console</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      max-width: 1100px;
+      margin: 12px auto;
+      padding: 0 12px;
+      color: #1a202c;
+      background: #f7fafc;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 8px 0 16px;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .card {
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 12px;
+      background: #fff;
+    }
+
+    button {
+      padding: 6px 14px;
+      cursor: pointer;
+      border: 1px solid #4a5568;
+      background: #fff;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+
+    button:hover {
+      background: #edf2f7;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .badge.live {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .badge.dead {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
+    .mag-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .mag-cell {
+      border: 1px solid #cbd5e0;
+      padding: 14px;
+      text-align: center;
+      background: #f7fafc;
+      border-radius: 6px;
+    }
+
+    .mag-axis {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: bold;
+    }
+
+    .mag-value {
+      font-size: 38px;
+      font-weight: bold;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mag-raw {
+      font-size: 11px;
+      color: #718096;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mag-axis.x {
+      color: #c53030;
+    }
+
+    .mag-axis.y {
+      color: #2f855a;
+    }
+
+    .mag-axis.z {
+      color: #2b6cb0;
+    }
+
+    .mag-meta {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #4a5568;
+    }
+
+    canvas {
+      background: #fff;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+    }
+
+    .status-grid {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .alarm-light {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #f0fff4, #c6f6d5);
+      border: 4px solid #2f855a;
+      box-shadow: 0 0 14px #2f855a;
+      transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 18px;
+      color: #22543d;
+      flex-shrink: 0;
+    }
+
+    .alarm-light.alarm {
+      background: radial-gradient(circle at 30% 30%, #fff5f5, #fc8181);
+      border-color: #c53030;
+      box-shadow: 0 0 30px #c53030;
+      color: #742a2a;
+      animation: pulse 0.7s infinite;
+    }
+
+    .alarm-light.unknown {
+      background: #edf2f7;
+      border-color: #a0aec0;
+      box-shadow: none;
+      color: #4a5568;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.08);
+      }
+    }
+
+    .status-info {
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .status-info b {
+      font-size: 16px;
+    }
+
+    .progress-bar {
+      width: 280px;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38a169, #d69e2e, #c53030);
+      transition: width 0.3s;
+    }
+
+    label {
+      display: inline-block;
+      min-width: 200px;
+    }
+
+    input,
+    select {
+      padding: 4px 6px;
+      font-family: inherit;
+      border: 1px solid #cbd5e0;
+      border-radius: 3px;
+    }
+
+    input[type="number"] {
+      width: 110px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid #cbd5e0;
+    }
+
+    th,
+    td {
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #edf2f7;
+    }
+
+    #statusWindow {
+      width: 100%;
+      height: 180px;
+      overflow-y: auto;
+      border: 1px solid #cbd5e0;
+      background-color: #fafafa;
+      padding: 8px;
+      box-sizing: border-box;
+      font-size: 12px;
+      line-height: 1.5;
+      border-radius: 4px;
+    }
+
+    #ackInfo {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>XDA003H Web BLE Console</h1>
+
+  <div class="row">
+    <button id="connect">Connect</button>
+    <button id="disconnect">Disconnect</button>
+    <span id="connState"
+          class="badge dead">disconnected</span>
+  </div>
+
+  <div class="card">
+    <h2>Hook Alarm Status</h2>
+    <div class="status-grid">
+      <div class="alarm-light unknown"
+           id="alarmLight">--</div>
+      <div class="status-info">
+        <div>Status: <b id="statusVal">--</b></div>
+        <div>
+          Margin: <b id="marginVal">--</b> / <span id="marginMax">10</span> sec
+          <div class="progress-bar">
+            <div class="progress-fill"
+                 id="marginFill"
+                 style="width:0%;"></div>
+          </div>
+        </div>
+        <div>Battery: <b id="battVal">--</b> &nbsp; mode: <span id="battMode">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Magnetometer (live NOTIFY) — values are |abs|, matching firmware threshold space</h2>
+    <div class="mag-grid">
+      <div class="mag-cell">
+        <div class="mag-axis x">|X|</div>
+        <div class="mag-value"
+             id="magX">--</div>
+        <div class="mag-raw"
+             id="magXRaw">raw —</div>
+      </div>
+      <div class="mag-cell">
+        <div class="mag-axis y">|Y|</div>
+        <div class="mag-value"
+             id="magY">--</div>
+        <div class="mag-raw"
+             id="magYRaw">raw —</div>
+      </div>
+      <div class="mag-cell">
+        <div class="mag-axis z">|Z|</div>
+        <div class="mag-value"
+             id="magZ">--</div>
+        <div class="mag-raw"
+             id="magZRaw">raw —</div>
+      </div>
+    </div>
+    <div class="mag-meta">
+      <span>rate: <b id="magRate">0.0</b> Hz</span>
+      <span>samples: <b id="magCount">0</b></span>
+      <span>last: <b id="magTime">--</b></span>
+      <span>|abs| max: X=<b id="absX">0</b> Y=<b id="absY">0</b> Z=<b id="absZ">0</b></span>
+    </div>
+    <canvas id="magChart"
+            width="1080"
+            height="220"
+            style="width:100%; margin-top:10px;"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Last ACK / NACK</h2>
+    <div id="ackInfo">No ACK yet. Send settings to verify.</div>
+  </div>
+
+  <div class="card">
+    <h2>Send hook_downlink_command_struct_v3 (17 bytes)</h2>
+
+    <div class="row">
+      <label>alarm_window_sec (uint8, 1-30)</label>
+      <input id="cycleTime"
+             type="number"
+             min="1"
+             max="30"
+             value="10" />
+      <label style="color:#999;">advertising_duration <small>(RESERVED, ignored)</small></label>
+      <input id="advDuration"
+             type="number"
+             min="0"
+             max="255"
+             value="1"
+             disabled
+             style="background:#f0f0f0; color:#999;" />
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Axis</th>
+          <th>sensing_type</th>
+          <th>sensitivity_high (uint16)</th>
+          <th>sensitivity_low (uint16)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>X</td>
+          <td>
+            <select id="xType">
+              <option value="0"
+                      selected>EXCLUSIVE (0x00)</option>
+              <option value="1">INCLUSIVE (0x01)</option>
+            </select>
+          </td>
+          <td><input id="xHigh"
+                   type="number"
+                   min="0"
+                   max="65535"
+                   value="32767"></td>
+          <td><input id="xLow"
+                   type="number"
+                   min="0"
+                   max="65535"
+                   value="0"></td>
+        </tr>
+        <tr>
+          <td>Y</td>
+          <td>
+            <select id="yType">
+              <option value="0"
+                      selected>EXCLUSIVE (0x00)</option>
+              <option value="1">INCLUSIVE (0x01)</option>
+            </select>
+          </td>
+          <td><input id="yHigh"
+                   type="number"
+                   min="0"
+                   max="65535"
+                   value="32767"></td>
+          <td><input id="yLow"
+                   type="number"
+                   min="0"
+                   max="65535"
+                   value="23000"></td>
+        </tr>
+        <tr>
+          <td>Z</td>
+          <td>
+            <select id="zType">
+              <option value="0"
+                      selected>EXCLUSIVE (0x00)</option>
+              <option value="1">INCLUSIVE (0x01)</option>
+            </select>
+          </td>
+          <td><input id="zHigh"
+                   type="number"
+                   min="0"
+                   max="65535"
+                   value="3000"></td>
+          <td><input id="zLow"
+                   type="number"
+                   min="0"
+                   max="65535"
+                   value="0"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="row"
+         style="margin-top:10px;">
+      <button id="sendBinary">Build + Send (17 bytes)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Device Info</h2>
+    <table>
+      <tr><td style="width:160px;">Hook ID</td>
+          <td>
+            <code id="disHookId">—</code>
+            <button id="disHookIdCopy" type="button"
+                    style="margin-left:6px; padding:2px 6px; font-size:11px;"
+                    title="Copy the hex bytes (no colons) for Belt console"
+                    disabled>Copy</button>
+            <span id="disHookIdCopied"
+                  style="margin-left:6px; font-size:11px; color:#27ae60;"></span>
+          </td></tr>
+      <tr><td>Model</td><td><code id="disModel">—</code></td></tr>
+      <tr><td>Firmware</td><td><code id="disFw">—</code></td></tr>
+      <tr><td>Hardware</td><td><code id="disHw">—</code></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Firmware OTA (BLE push, no USB needed)</h2>
+    <div id="otaArea">
+      <div class="row" style="align-items:center;">
+        <input id="otaFile" type="file" accept=".bin" />
+        <button id="otaStart" disabled>Start OTA</button>
+        <button id="otaCancel" disabled>Cancel</button>
+      </div>
+      <div style="margin-top:10px;">
+        <div id="otaProgressBar"
+             style="height:14px;background:#eee;border-radius:7px;overflow:hidden;
+                    border:1px solid #ccc;">
+          <div id="otaProgressFill"
+               style="height:100%;width:0%;background:#4caf50;transition:width 0.2s;"></div>
+        </div>
+        <div id="otaStatus" style="margin-top:6px;font-size:0.92em;color:#555;">
+          Pick a firmware <code>.bin</code> (single merged file from
+          <code>firmware/release/</code>). The OTA service must be present
+          on the connected hook (firmware ≥ 5170fe1).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Log</h2>
+    <div id="statusWindow">
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    // ------------- BLE state -------------
+    const SERVICE_UUID = "83940000-5273-9374-2109-847320948571";
+    const TX_UUID = "83940001-5273-9374-2109-847320948571"; // server -> client (notify)
+    const RX_UUID = "83940002-5273-9374-2109-847320948571"; // client -> server (write)
+
+    // h2zero/NimBLEOta service UUIDs (16-bit assigned, expanded to 128-bit form
+    // per the BT base). Matches firmware/src/main.cpp + tools/nimbleota.py.
+    const OTA_SERVICE_UUID  = "00008018-0000-1000-8000-00805f9b34fb";
+    const OTA_FIRMWARE_UUID = "00008020-0000-1000-8000-00805f9b34fb"; // chunked firmware bytes + sector ack via indicate
+    const OTA_COMMAND_UUID  = "00008022-0000-1000-8000-00805f9b34fb"; // start/stop + ack via indicate
+
+    let bluetoothDevice = null;
+    let writeChar = null;
+    let notifyChar = null;
+    let otaService = null;
+    let otaCommandChar = null;
+    let otaFirmwareChar = null;
+    let otaFile = null;
+    let otaInProgress = false;
+    let otaCancelRequested = false;
+
+    // ------------- Mag state -------------
+    const HIST_LEN = 200;
+    const histX = [], histY = [], histZ = [];
+    let magCount = 0;
+    let lastWindowCnt = 0;
+    let lastWindowTime = Date.now();
+    let absMaxX = 0, absMaxY = 0, absMaxZ = 0;
+
+    // Threshold settings (populated from ACK).
+    // Hook firmware (xda_magnetic_measurement2.h:check_detect_metal_within)
+    // treats the int16 mag value as uint16 via u16_abs_i16(). The thresholds
+    // are also uint16. Semantics:
+    //   EXCLUSIVE: metal detected when |val| < low OR |val| > high
+    //              → alarm zone (= no-metal) is the band [low, high]
+    //   INCLUSIVE: metal detected when low ≤ |val| ≤ high
+    //              → alarm zone is everything outside [low, high]
+    // detected=true → counter resets; detected=false → counter grows toward
+    // alarm_window_s → alarm fires.
+    let thresholds = null;
+
+    // ------------- DOM -------------
+    const elConn = document.getElementById('connState');
+    const elX = document.getElementById('magX');
+    const elY = document.getElementById('magY');
+    const elZ = document.getElementById('magZ');
+    const elRate = document.getElementById('magRate');
+    const elCount = document.getElementById('magCount');
+    const elTime = document.getElementById('magTime');
+    const elAbsX = document.getElementById('absX');
+    const elAbsY = document.getElementById('absY');
+    const elAbsZ = document.getElementById('absZ');
+    const elAck = document.getElementById('ackInfo');
+    const canvas = document.getElementById('magChart');
+    const ctx = canvas.getContext('2d');
+
+    // Update sample-rate display once per second
+    setInterval(() => {
+      const now = Date.now();
+      const dt = (now - lastWindowTime) / 1000;
+      const dn = magCount - lastWindowCnt;
+      elRate.textContent = (dt > 0 ? (dn / dt).toFixed(1) : '0.0');
+      lastWindowCnt = magCount;
+      lastWindowTime = now;
+    }, 1000);
+
+    // ------------- BLE handlers -------------
+    document.getElementById('connect').addEventListener('click', async () => {
+      if (!navigator.bluetooth) {
+        log('Web Bluetooth not available in this browser.');
+        return;
+      }
+      try {
+        log('Requesting BLE device (HOOK-* or service UUID match)...');
+        const device = await navigator.bluetooth.requestDevice({
+          // Match by either the 17-byte service UUID (works regardless of
+          // the BLE name string) or the HOOK- name prefix as a convenience
+          // for picking the right device when multiple Hooks are nearby.
+          filters: [{ services: [SERVICE_UUID] }, { namePrefix: 'HOOK-' }],
+          // Web Bluetooth blocks getPrimaryService() for any UUID not
+          // explicitly listed here, even if the device exposes it. Include
+          // OTA + DIS so the OTA card and any DIS readers can resolve them.
+          optionalServices: [SERVICE_UUID, OTA_SERVICE_UUID,
+                             '0000180a-0000-1000-8000-00805f9b34fb']
+        });
+        bluetoothDevice = device;
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+        log(`Found: ${device.name}`);
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        [writeChar, notifyChar] = await Promise.all([
+          service.getCharacteristic(RX_UUID),
+          service.getCharacteristic(TX_UUID)
+        ]);
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', handleNotification);
+        elConn.className = 'badge live';
+        elConn.textContent = 'connected: ' + device.name;
+        // Hook ID. Hook firmware (post 2026-05-08) advertises name as
+        // "HOOK-XXXXXXXXXXXX" where the 12 hex chars are the chip MAC in
+        // standard MSB-first notation (DC:06:75:F7:87:B2 layout). The
+        // Belt console accepts the same MSB-first form and reverses on
+        // its end before the BLE write, so we just format with colons +
+        // expose the unseparated hex on the clipboard here. Older
+        // firmware (pre-fix) only had 6 hex chars (just the OUI), in
+        // which case we surface a "needs OTA to expose full 6-byte ID"
+        // hint.
+        const hookIdEl     = document.getElementById('disHookId');
+        const hookIdCopyEl = document.getElementById('disHookIdCopy');
+        const m12 = /^HOOK-([0-9A-Fa-f]{12})$/.exec(device.name || '');
+        const m6  = /^HOOK-([0-9A-Fa-f]{6})$/.exec (device.name || '');
+        if (m12) {
+          const hex = m12[1].toUpperCase();
+          const colon = hex.match(/.{2}/g).join(':');
+          hookIdEl.textContent = colon;
+          hookIdCopyEl.disabled = false;
+          hookIdCopyEl.dataset.copyHex = hex;
+        } else if (m6) {
+          hookIdEl.textContent = `${device.name}  ⚠ old firmware — only ${m6[1].toUpperCase()} (3 bytes); needs OTA to expose full 6-byte ID`;
+          hookIdCopyEl.disabled = true;
+        } else {
+          hookIdEl.textContent = device.name || '—';
+          hookIdCopyEl.disabled = true;
+        }
+        log('Connected & subscribed.');
+
+        // Optional Device Information Service (0x180A) — read once after
+        // connect to populate the Device Info card. Same firmware that
+        // shipped OTA also publishes DIS (manufacturer / model / firmware
+        // revision / hardware revision), so reading these doubles as a
+        // quick liveness check.
+        try {
+          const disService = await server.getPrimaryService('0000180a-0000-1000-8000-00805f9b34fb');
+          const dec = new TextDecoder();
+          const readChar = async (uuid) => {
+            try {
+              const c = await disService.getCharacteristic(uuid);
+              const v = await c.readValue();
+              return dec.decode(v.buffer);
+            } catch (e) { return ''; }
+          };
+          const [model, fw, hw] = await Promise.all([
+            readChar('00002a24-0000-1000-8000-00805f9b34fb'),
+            readChar('00002a26-0000-1000-8000-00805f9b34fb'),
+            readChar('00002a27-0000-1000-8000-00805f9b34fb'),
+          ]);
+          document.getElementById('disModel').textContent = model || '—';
+          document.getElementById('disFw').textContent    = fw    || '—';
+          document.getElementById('disHw').textContent    = hw    || '—';
+          log(`DIS: ${model} / fw=${fw} / hw=${hw}`);
+        } catch (e) {
+          log('DIS not present (firmware too old).');
+        }
+
+        // Optional OTA service (firmware ≥ 5170fe1). Hooks flashed with the
+        // pre-OTA firmware just won't expose this service; we tolerate that
+        // and disable the OTA UI.
+        try {
+          otaService = await server.getPrimaryService(OTA_SERVICE_UUID);
+          otaCommandChar  = await otaService.getCharacteristic(OTA_COMMAND_UUID);
+          otaFirmwareChar = await otaService.getCharacteristic(OTA_FIRMWARE_UUID);
+          await otaCommandChar.startNotifications();
+          await otaFirmwareChar.startNotifications();
+          otaCommandChar.addEventListener('characteristicvaluechanged', handleOtaCmdNotify);
+          otaFirmwareChar.addEventListener('characteristicvaluechanged', handleOtaFwNotify);
+          document.getElementById('otaStart').disabled = !otaFile;
+          log('OTA service ready.');
+        } catch (e) {
+          log('OTA service not present on this hook (firmware too old).');
+          otaService = null;
+        }
+      } catch (e) {
+        log(`Error: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('disconnect').addEventListener('click', () => {
+      if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+        bluetoothDevice.gatt.disconnect();
+      } else {
+        log('Device is not connected.');
+      }
+    });
+
+    function onDisconnected() {
+      elConn.className = 'badge dead';
+      elConn.textContent = 'disconnected';
+      writeChar = null;
+      notifyChar = null;
+      otaService = null;
+      otaCommandChar = null;
+      otaFirmwareChar = null;
+      // Clear DIS readouts so they don't claim values from the previous unit
+      ['disHookId','disModel','disFw','disHw'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+      });
+      if (otaInProgress) {
+        otaCancelRequested = true;
+        log('OTA aborted (device disconnected).');
+      }
+      document.getElementById('otaStart').disabled = true;
+      document.getElementById('otaCancel').disabled = true;
+      log('Disconnected.');
+    }
+
+    // ─── OTA: h2zero/NimBLEOta protocol over Web Bluetooth ──────────────────
+    // Mirror of tools/nimbleota.py. Web Bluetooth's CoreBluetooth backend on
+    // macOS auto-confirms indications at the platform layer (the bug bleak
+    // hits on the same machine), so this path works on Chrome/Edge desktop
+    // even when the native python script can't.
+
+    const OTA_START_CMD       = 0x0001;
+    const OTA_STOP_CMD        = 0x0002;
+    const OTA_ACK_ACCEPTED    = 0x0000;
+    const OTA_FW_ACK_SUCCESS  = 0x0000;
+    const OTA_FW_ACK_CRC      = 0x0001;
+    const OTA_FW_ACK_SECTOR   = 0x0002;
+    const OTA_FW_ACK_LEN      = 0x0003;
+
+    let pendingCmdAck = null;   // {resolve, reject, timeout}
+    let pendingFwAck  = null;
+
+    function crc16Ccitt(buf) {
+      let crc = 0;
+      for (let i = 0; i < buf.length; i++) {
+        crc ^= buf[i] << 8;
+        for (let b = 0; b < 8; b++) {
+          if (crc & 0x8000) crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+          else              crc =  (crc << 1) & 0xFFFF;
+        }
+      }
+      return crc;
+    }
+
+    function handleOtaCmdNotify(event) {
+      const data = new Uint8Array(event.target.value.buffer);
+      if (data.length !== 20) return;
+      const ack = data[0] | (data[1] << 8);
+      const rsp = data[4] | (data[5] << 8);
+      if (pendingCmdAck) {
+        const p = pendingCmdAck; pendingCmdAck = null;
+        clearTimeout(p.timeout);
+        p.resolve(rsp);
+      }
+    }
+
+    function handleOtaFwNotify(event) {
+      const data = new Uint8Array(event.target.value.buffer);
+      if (data.length !== 20) return;
+      const status     = data[2] | (data[3] << 8);
+      const curSector  = data[4] | (data[5] << 8);
+      if (pendingFwAck) {
+        const p = pendingFwAck; pendingFwAck = null;
+        clearTimeout(p.timeout);
+        p.resolve({status, curSector});
+      }
+    }
+
+    function awaitAck(slot, timeoutMs) {
+      return new Promise((resolve, reject) => {
+        const o = {resolve, reject};
+        o.timeout = setTimeout(() => {
+          if (slot === 'cmd') pendingCmdAck = null;
+          else                pendingFwAck  = null;
+          reject(new Error(`${slot} ack timeout (${timeoutMs}ms)`));
+        }, timeoutMs);
+        if (slot === 'cmd') pendingCmdAck = o;
+        else                pendingFwAck  = o;
+      });
+    }
+
+    function buildSector(sectorBytes) {
+      // Append 2-byte CRC16 (LE) to get the 4098B sector framing the
+      // device expects. Last partial sector keeps the same framing.
+      const crc = crc16Ccitt(sectorBytes);
+      const out = new Uint8Array(sectorBytes.length + 2);
+      out.set(sectorBytes);
+      out[out.length - 2] = crc & 0xFF;
+      out[out.length - 1] = (crc >> 8) & 0xFF;
+      return out;
+    }
+
+    async function uploadSector(sector, sectorIdx, isLastSector) {
+      // Each chunk header is 3B: [secIdx LE 2B] [seq 1B] then payload.
+      // Web BLE's max write = 512B - GATT 3B = 509B payload per chunk.
+      const MAX_PAYLOAD = 512 - 3 - 3;
+      const chunks = [];
+      for (let i = 0; i < sector.length; i += MAX_PAYLOAD) {
+        chunks.push(sector.slice(i, i + MAX_PAYLOAD));
+      }
+      // Tag last sector with sectorIdx=0xFFFF; otherwise pass real index.
+      const idxToSend = isLastSector ? 0xFFFF : sectorIdx;
+      for (let s = 0; s < chunks.length; s++) {
+        const seq = (s === chunks.length - 1) ? 0xFF : s;
+        const pkt = new Uint8Array(3 + chunks[s].length);
+        pkt[0] = idxToSend & 0xFF;
+        pkt[1] = (idxToSend >> 8) & 0xFF;
+        pkt[2] = seq;
+        pkt.set(chunks[s], 3);
+        if (otaFirmwareChar.writeValueWithoutResponse) {
+          await otaFirmwareChar.writeValueWithoutResponse(pkt);
+        } else {
+          await otaFirmwareChar.writeValue(pkt);
+        }
+      }
+    }
+
+    function setOtaStatus(text) {
+      document.getElementById('otaStatus').textContent = text;
+    }
+    function setOtaProgress(pct) {
+      document.getElementById('otaProgressFill').style.width = pct.toFixed(1) + '%';
+    }
+
+    async function runOta() {
+      if (!otaService || !otaFile) return;
+      otaInProgress = true;
+      otaCancelRequested = false;
+      document.getElementById('otaStart').disabled  = true;
+      document.getElementById('otaCancel').disabled = false;
+
+      try {
+        const fileBuf = new Uint8Array(await otaFile.arrayBuffer());
+        const fileSize = fileBuf.length;
+        log(`OTA: ${otaFile.name}  ${fileSize} bytes`);
+        setOtaStatus(`Sending START... (${fileSize} bytes)`);
+
+        // Build sectors (4096B each + 2B CRC).
+        const SECTOR = 4096;
+        const sectors = [];
+        for (let i = 0; i < fileSize; i += SECTOR) {
+          sectors.push(buildSector(fileBuf.slice(i, i + SECTOR)));
+        }
+        const totalSectors = sectors.length;
+
+        // 1. START_COMMAND  20B = [cmd(2)] [size(4)] [reserved(12)] [crc16(2)]
+        const startPkt = new Uint8Array(20);
+        startPkt[0] = OTA_START_CMD & 0xFF;
+        startPkt[1] = (OTA_START_CMD >> 8) & 0xFF;
+        startPkt[2] = fileSize & 0xFF;
+        startPkt[3] = (fileSize >> 8) & 0xFF;
+        startPkt[4] = (fileSize >> 16) & 0xFF;
+        startPkt[5] = (fileSize >> 24) & 0xFF;
+        const startCrc = crc16Ccitt(startPkt.slice(0, 18));
+        startPkt[18] = startCrc & 0xFF;
+        startPkt[19] = (startCrc >> 8) & 0xFF;
+
+        const ackPromise = awaitAck('cmd', 10000);
+        await otaCommandChar.writeValue(startPkt);
+        const startRsp = await ackPromise;
+        if (startRsp !== OTA_ACK_ACCEPTED) {
+          throw new Error(`START rejected (rsp=${startRsp})`);
+        }
+
+        // 2. Send sectors, await per-sector fw ack.
+        for (let i = 0; i < totalSectors; i++) {
+          if (otaCancelRequested) throw new Error('cancelled');
+          const isLast = (i === totalSectors - 1);
+          const sector = sectors[i];
+          let attempts = 0;
+          while (true) {
+            attempts++;
+            const fwAck = awaitAck('fw', 15000);
+            await uploadSector(sector, i, isLast);
+            const r = await fwAck;
+            if (r.status === OTA_FW_ACK_SUCCESS) break;
+            if (r.status === OTA_FW_ACK_CRC || r.status === OTA_FW_ACK_LEN) {
+              if (attempts >= 3) throw new Error(`sector ${i} repeated CRC/LEN error`);
+              continue;
+            }
+            if (r.status === OTA_FW_ACK_SECTOR) {
+              i = r.curSector - 1;  // device tells us which sector to retry; -1 because loop ++
+              break;
+            }
+            throw new Error(`unknown fw_ack status=${r.status}`);
+          }
+          const pct = ((i + 1) / totalSectors) * 100;
+          setOtaProgress(pct);
+          setOtaStatus(`${pct.toFixed(1)}%  (sector ${i + 1}/${totalSectors})`);
+        }
+
+        setOtaStatus(`Complete — device will restart in ~2s`);
+        log('OTA: complete');
+      } catch (e) {
+        setOtaStatus(`Failed: ${e.message || e}`);
+        log(`OTA error: ${e.message || e}`);
+      } finally {
+        otaInProgress = false;
+        document.getElementById('otaCancel').disabled = true;
+        document.getElementById('otaStart').disabled = !(otaService && otaFile);
+      }
+    }
+
+    document.getElementById('otaFile').addEventListener('change', (e) => {
+      otaFile = e.target.files[0] || null;
+      document.getElementById('otaStart').disabled = !(otaService && otaFile);
+      if (otaFile) setOtaStatus(`Picked ${otaFile.name} (${otaFile.size} bytes). Click Start OTA.`);
+    });
+    document.getElementById('otaStart').addEventListener('click', runOta);
+    document.getElementById('otaCancel').addEventListener('click', () => {
+      otaCancelRequested = true;
+      log('OTA cancel requested.');
+    });
+
+    // Hook ID copy: drop the 12-hex bytes onto the clipboard (no colons,
+    // ready to paste into the Belt web console "Hook Bindings" input).
+    document.getElementById('disHookIdCopy').addEventListener('click', async () => {
+      const btn = document.getElementById('disHookIdCopy');
+      const note = document.getElementById('disHookIdCopied');
+      const hex = btn.dataset.copyHex;
+      if (!hex) return;
+      try {
+        await navigator.clipboard.writeText(hex.toLowerCase());
+        note.textContent = `copied ${hex}`;
+        setTimeout(() => { note.textContent = ''; }, 2500);
+      } catch (e) {
+        note.textContent = 'copy failed — select & ⌘C manually';
+        note.style.color = '#c0392b';
+      }
+    });
+
+    // ------------- NOTIFY dispatcher -------------
+    // Protocol (first byte = type):
+    //   0x00 + 17B settings              -> ACK OK (echo of stored settings)
+    //   0x01 + 1B length                 -> NACK bad length
+    //   0x02 + 6B int16 LE               -> mag XYZ data
+    //   0x03 + status + cnt + lvl + mode -> hook status update
+    function handleNotification(event) {
+      const dv = event.target.value;
+      if (dv.byteLength < 1) return;
+      const type = dv.getUint8(0);
+      switch (type) {
+        case 0x00: handleAck(dv); break;
+        case 0x01: handleNack(dv); break;
+        case 0x02: handleMag(dv); break;
+        case 0x03: handleStatus(dv); break;
+        default:
+          log(`[notify type=0x${type.toString(16)}] ${toHexDV(dv)}`);
+      }
+    }
+
+    function handleStatus(dv) {
+      if (dv.byteLength < 5) return;
+      const status = dv.getUint8(1);
+      const counter = dv.getUint8(2);
+      const battLvl = dv.getUint8(3);
+      const battMode = dv.getUint8(4);
+
+      const light = document.getElementById('alarmLight');
+      const sVal = document.getElementById('statusVal');
+      const mVal = document.getElementById('marginVal');
+      const mFill = document.getElementById('marginFill');
+      const bVal = document.getElementById('battVal');
+      const bMode = document.getElementById('battMode');
+
+      const isAlarm = (status === 1);
+      light.className = 'alarm-light' + (isAlarm ? ' alarm' : '');
+      light.textContent = isAlarm ? 'ALARM' : 'OK';
+      sVal.textContent = isAlarm ? 'ALARM' : 'NORMAL';
+      sVal.style.color = isAlarm ? '#c53030' : '#22543d';
+
+      mVal.textContent = counter;
+      const max = parseInt(document.getElementById('marginMax').textContent, 10) || 10;
+      const pct = Math.min(100, (counter / max) * 100);
+      mFill.style.width = pct + '%';
+
+      bVal.textContent = `${battLvl} (~${(battLvl / 255 * 100).toFixed(0)}%)`;
+      bMode.textContent = ({ 0: 'NORMAL', 1: 'LOW', 2: 'CHARGING' })[battMode] || battMode;
+    }
+
+    function handleMag(dv) {
+      if (dv.byteLength < 7) return;
+      const rx = dv.getInt16(1, true);
+      const ry = dv.getInt16(3, true);
+      const rz = dv.getInt16(5, true);
+      // Hook compares abs(int16)→uint16 against the uint16 thresholds (see
+      // u16_abs_i16 + check_detect_metal_within in firmware). Use the abs
+      // values for chart + headline numbers so they share the same axis as
+      // the settings form. Keep the raw signed ints visible in small text
+      // for orientation / hard-iron debugging.
+      const x = Math.abs(rx);
+      const y = Math.abs(ry);
+      const z = Math.abs(rz);
+      elX.textContent = x;
+      elY.textContent = y;
+      elZ.textContent = z;
+      document.getElementById('magXRaw').textContent = `raw ${rx}`;
+      document.getElementById('magYRaw').textContent = `raw ${ry}`;
+      document.getElementById('magZRaw').textContent = `raw ${rz}`;
+      magCount++;
+      elCount.textContent = magCount;
+      elTime.textContent = new Date().toLocaleTimeString();
+
+      absMaxX = Math.max(absMaxX, x); elAbsX.textContent = absMaxX;
+      absMaxY = Math.max(absMaxY, y); elAbsY.textContent = absMaxY;
+      absMaxZ = Math.max(absMaxZ, z); elAbsZ.textContent = absMaxZ;
+
+      histX.push(x); histY.push(y); histZ.push(z);
+      if (histX.length > HIST_LEN) { histX.shift(); histY.shift(); histZ.shift(); }
+      drawChart();
+    }
+
+    function handleAck(dv) {
+      if (dv.byteLength < 18) {
+        elAck.innerHTML = `<span style="color:#22543d;font-weight:bold;">ACK OK</span> (payload too short: ${dv.byteLength}B)`;
+        return;
+      }
+      const cycle = dv.getUint8(1);
+      const adv = dv.getUint8(2);
+      // Sync the alarm-window progress bar to the device's stored cycle_time
+      document.getElementById('marginMax').textContent = cycle;
+      const ax = readAxis(dv, 3);
+      const ay = readAxis(dv, 8);
+      const az = readAxis(dv, 13);
+      // Cache for chart threshold overlay
+      thresholds = { x: ax, y: ay, z: az };
+      elAck.innerHTML = `
+                <span style="color:#22543d;font-weight:bold;">ACK OK</span>
+                — stored settings echoed by device:<br>
+                cycle_time=<b>${cycle}</b>, adv_duration=<b>${adv}</b><br>
+                X: type=${ax.t} (${ax.t === 1 ? 'INCLUSIVE' : 'EXCLUSIVE'}), high=${ax.h}, low=${ax.l}<br>
+                Y: type=${ay.t} (${ay.t === 1 ? 'INCLUSIVE' : 'EXCLUSIVE'}), high=${ay.h}, low=${ay.l}<br>
+                Z: type=${az.t} (${az.t === 1 ? 'INCLUSIVE' : 'EXCLUSIVE'}), high=${az.h}, low=${az.l}
+            `;
+      log('ACK received');
+    }
+
+    function handleNack(dv) {
+      const len = dv.byteLength >= 2 ? dv.getUint8(1) : -1;
+      elAck.innerHTML = `<span style="color:#742a2a;font-weight:bold;">NACK</span> bad length (received ${len}B, expected 17B)`;
+      log(`NACK: bad length ${len}`);
+    }
+
+    function readAxis(dv, off) {
+      return {
+        t: dv.getUint8(off),
+        h: dv.getUint16(off + 1, true),
+        l: dv.getUint16(off + 3, true)
+      };
+    }
+
+    // ------------- Chart rendering -------------
+    // Plots |X|, |Y|, |Z| (uint16) on a 0 .. yMax linear axis so traces share
+    // the same coordinate system as the threshold settings. The "alarm zone"
+    // (= region where firmware would consider the axis NOT detecting metal)
+    // is shaded per axis: EXCLUSIVE shades the [low, high] band; INCLUSIVE
+    // shades everything outside [low, high].
+    //
+    // 32767 is treated as a "disabled high" sentinel — the v0 default
+    // effectively disables that axis, and drawing it as a line on every
+    // chart adds noise without information.
+    function drawChart() {
+      const W = canvas.width, H = canvas.height;
+      const PAD_L = 56;
+      const PAD_R = 80;
+      const PAD_TB = 16;
+      const plotW = W - PAD_L - PAD_R;
+      const plotH = H - PAD_TB * 2;
+      const yBottom = PAD_TB + plotH;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#fafafa';
+      ctx.fillRect(0, 0, W, H);
+
+      if (!histX.length) return;
+
+      // Y scale: include actual data + all "active" thresholds.
+      const allData = histX.concat(histY).concat(histZ);
+      let yMax = Math.max(1000, ...allData);
+      if (thresholds) {
+        const tp = [];
+        for (const ax of [thresholds.x, thresholds.y, thresholds.z]) {
+          if (ax.l > 0)     tp.push(ax.l);
+          if (ax.h < 32767) tp.push(ax.h);
+        }
+        if (tp.length) yMax = Math.max(yMax, ...tp);
+      }
+      // Round up to a tidy tick value (1k granularity is fine for typical ranges)
+      yMax = Math.ceil(yMax / 1000) * 1000;
+      const yScale = plotH / yMax;
+      const yToPx = (v) => yBottom - Math.min(Math.max(v, 0), yMax) * yScale;
+
+      // ----- Y-axis grid + labels -----
+      ctx.font = '11px ui-monospace, monospace';
+      ctx.textAlign = 'right';
+      const ticks = [0, 0.25, 0.5, 0.75, 1].map(t => Math.round(t * yMax));
+      for (const t of ticks) {
+        const py = yToPx(t);
+        ctx.strokeStyle = (t === 0) ? '#a0aec0' : '#edf2f7';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD_L, py);
+        ctx.lineTo(W - PAD_R, py);
+        ctx.stroke();
+        ctx.fillStyle = '#4a5568';
+        ctx.fillText(String(t), PAD_L - 4, py + 4);
+      }
+
+      // ----- Per-axis alarm-zone shading + dashed threshold lines -----
+      if (thresholds) {
+        const drawAxis = (color, thr, label) => {
+          const lo = thr.l;
+          const hi = (thr.h < 32767) ? thr.h : null;
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.06;
+          if (thr.t === 0) {
+            // EXCLUSIVE → alarm zone is band [lo, hi]. When hi is the
+            // "disabled high" sentinel (32767), treat it as +∞ so the band
+            // extends to the top of the chart (firmware: val > 32767 is
+            // impossible because ax is uint16 from int16 abs).
+            const effHi = (hi !== null) ? hi : yMax;
+            if (effHi > lo) {
+              const yTop = yToPx(effHi), yBot = yToPx(lo);
+              ctx.fillRect(PAD_L, yTop, plotW, yBot - yTop);
+            }
+          } else {
+            // INCLUSIVE → alarm zone is OUTSIDE [lo, hi]
+            if (lo > 0) {
+              const yTop = yToPx(lo);
+              ctx.fillRect(PAD_L, yTop, plotW, yBottom - yTop);
+            }
+            if (hi !== null && hi < yMax) {
+              const yTop = yToPx(yMax), yBot = yToPx(hi);
+              ctx.fillRect(PAD_L, yTop, plotW, yBot - yTop);
+            }
+          }
+          ctx.globalAlpha = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = color;
+          ctx.fillStyle = color;
+          ctx.lineWidth = 1;
+          ctx.textAlign = 'left';
+          if (lo > 0) {
+            const py = yToPx(lo);
+            ctx.beginPath(); ctx.moveTo(PAD_L, py); ctx.lineTo(W - PAD_R, py); ctx.stroke();
+            ctx.fillText(`${label} low ${lo}`, PAD_L + 4, py - 2);
+          }
+          if (hi !== null) {
+            const py = yToPx(hi);
+            ctx.beginPath(); ctx.moveTo(PAD_L, py); ctx.lineTo(W - PAD_R, py); ctx.stroke();
+            ctx.fillText(`${label} high ${hi}`, PAD_L + 4, py - 2);
+          }
+          ctx.setLineDash([]);
+        };
+        drawAxis('#c53030', thresholds.x, 'X');
+        drawAxis('#2f855a', thresholds.y, 'Y');
+        drawAxis('#2b6cb0', thresholds.z, 'Z');
+      }
+
+      // ----- Series lines (|val|) -----
+      const series = [
+        { name: '|X|', color: '#c53030', data: histX },
+        { name: '|Y|', color: '#2f855a', data: histY },
+        { name: '|Z|', color: '#2b6cb0', data: histZ }
+      ];
+      ctx.lineWidth = 1.8;
+      for (const s of series) {
+        ctx.strokeStyle = s.color;
+        ctx.beginPath();
+        s.data.forEach((v, i) => {
+          const px = PAD_L + (i / (HIST_LEN - 1)) * plotW;
+          const py = yToPx(v);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+      }
+
+      // ----- Right-edge current value labels -----
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 12px ui-monospace, monospace';
+      for (const s of series) {
+        if (!s.data.length) continue;
+        const v = s.data[s.data.length - 1];
+        const py = Math.max(PAD_TB + 6, Math.min(H - PAD_TB - 2, yToPx(v)));
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(W - PAD_R + 2, py, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText(`${s.name}=${v}`, W - PAD_R + 8, py + 4);
+      }
+
+      // ----- Top-left legend / scale info -----
+      ctx.textAlign = 'left';
+      ctx.font = '11px ui-monospace, monospace';
+      ctx.fillStyle = '#4a5568';
+      ctx.fillText(
+        `scale: 0..${yMax}    last ${HIST_LEN} samples` +
+          (thresholds ? '    shaded = no-metal zone (counter grows → alarm)' : ''),
+        PAD_L + 4, 14);
+    }
+
+    // ------------- Send settings -------------
+    function u8(v) { return Number(v) & 0xFF; }
+    function u16(v) { return Number(v) & 0xFFFF; }
+
+    function buildPayload() {
+      const buf = new ArrayBuffer(17);
+      const dv = new DataView(buf);
+      let o = 0;
+      dv.setUint8(o++, u8(document.getElementById('cycleTime').value));
+      dv.setUint8(o++, u8(document.getElementById('advDuration').value));
+      for (const ax of ['x', 'y', 'z']) {
+        dv.setUint8(o++, u8(document.getElementById(ax + 'Type').value));
+        dv.setUint16(o, u16(document.getElementById(ax + 'High').value), true); o += 2;
+        dv.setUint16(o, u16(document.getElementById(ax + 'Low').value), true); o += 2;
+      }
+      if (o !== 17) throw new Error(`Pack size mismatch: ${o}`);
+      return new Uint8Array(buf);
+    }
+
+    document.getElementById('sendBinary').addEventListener('click', async () => {
+      if (!writeChar) { log('Not connected.'); return; }
+      try {
+        const payload = buildPayload();
+        log(`[tx 17B] ${toHex(payload)}`);
+        if (writeChar.writeValueWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(payload);
+        } else {
+          await writeChar.writeValue(payload);
+        }
+        log('TX OK');
+      } catch (e) {
+        log(`TX Error: ${e.message || e}`);
+      }
+    });
+
+    // ------------- Utilities -------------
+    function log(msg) {
+      const d = document.getElementById('status');
+      const ts = new Date().toLocaleTimeString();
+      d.innerHTML += `<span style="color:#888;">[${ts}]</span> ${msg}<br>`;
+      const w = document.getElementById('statusWindow');
+      w.scrollTop = w.scrollHeight;
+    }
+
+    function toHex(u8arr) {
+      return Array.from(u8arr).map(b => b.toString(16).padStart(2, '0')).join(' ').toUpperCase();
+    }
+
+    function toHexDV(dv) {
+      const u = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+      return toHex(u);
+    }
+  </script>
+</body>
+
+</html>

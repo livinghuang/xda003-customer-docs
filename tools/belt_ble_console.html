@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>XDA003B Belt Web BLE Console</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { --bg: #f6f7fa; --card: #fff; --border: #e1e3e8; --text: #222; --muted: #6a7280;
+          --accent: #1976d2; --ok: #2e7d32; --warn: #ef6c00; --err: #c62828; --gray: #b8bcc4; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+         margin: 0; padding: 20px; background: var(--bg); color: var(--text); }
+  h1 { font-size: 1.4em; margin: 0 0 12px; }
+  h2 { font-size: 1.0em; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  h3 { font-size: 0.95em; margin: 12px 0 6px; }
+  .container { max-width: 980px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+          padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 160px; }
+  button { padding: 8px 14px; font-size: 14px; border: 1px solid #ccc; background: #fff;
+           cursor: pointer; border-radius: 6px; }
+  button:hover { background: #eef0f4; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #155bab; }
+  button.danger { background: #fff; color: var(--err); border-color: var(--err); }
+  button.danger:hover { background: #fff1f1; }
+  input, select { padding: 6px 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; }
+  input[type=text] { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .stat-num { font-size: 1.6em; font-weight: 600; }
+  .stat-label { font-size: 0.78em; color: var(--muted); }
+  .alarm-light { width: 64px; height: 64px; border-radius: 50%; background: var(--gray); }
+  .alarm-red { background: var(--err); box-shadow: 0 0 24px var(--err); animation: pulse 1s infinite; }
+  .alarm-orange { background: var(--warn); box-shadow: 0 0 16px var(--warn); }
+  .alarm-green { background: var(--ok); }
+  .alarm-gray { background: var(--gray); }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.55; } 100% { opacity: 1; } }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f1f3f6; }
+  td code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .log { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+         background: #1e1e1e; color: #ddd; padding: 12px; border-radius: 8px;
+         height: 220px; overflow-y: auto; }
+  .log .err { color: #ff6b6b; }
+  .log .ok  { color: #69f0ae; }
+  .log .ts  { color: #888; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.78em;
+          background: var(--bg); border: 1px solid var(--border); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.err { color: var(--err); border-color: var(--err); }
+  .stale { opacity: 0.55; }
+  .slot-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.72em;
+               margin-left: 8px; vertical-align: middle; }
+  .slot-pill.live { background: #e7f5ec; color: var(--ok); border: 1px solid var(--ok); }
+  .slot-pill.adv  { background: #fff3e3; color: var(--warn); border: 1px solid var(--warn); }
+  .slot-pill.disc { background: #f1f3f6; color: var(--muted); border: 1px solid var(--border); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>XDA003B Belt Web BLE Console</h1>
+
+  <!-- ── Connection ────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Connection</h2>
+    <div class="row">
+      <div class="col">
+        <button id="connectBtn" class="primary">Connect</button>
+        <button id="disconnectBtn">Disconnect</button>
+      </div>
+      <div class="col" style="text-align: right;">
+        <span id="connState" class="pill">disconnected</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Belt status ──────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Belt Status</h2>
+    <div class="row" style="align-items: center;">
+      <div><div id="zoneLight" class="alarm-light alarm-gray"></div></div>
+      <div class="col">
+        <div class="stat-num" id="zoneText">unknown</div>
+        <div class="stat-label">danger zone</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="battLevel">—</div>
+        <div class="stat-label">battery level (0..255)</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="battMode">—</div>
+        <div class="stat-label">battery mode</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="reedStatus">—</div>
+        <div class="stat-label">reed switch</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Hook slots ───────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Hook Slots</h2>
+    <div class="row">
+      <div class="col" id="hook0Card">
+        <h3>Slot 0
+          <span id="hook0Pill" class="slot-pill disc">disconnected</span>
+        </h3>
+        <div>id: <code id="hook0Id">—</code></div>
+        <div>status: <span id="hook0Status">—</span></div>
+        <div>counter: <span id="hook0Counter">—</span></div>
+        <div>battery: <span id="hook0Batt">—</span></div>
+        <div>via: <span id="hook0Age">—</span></div>
+      </div>
+      <div class="col" id="hook1Card">
+        <h3>Slot 1
+          <span id="hook1Pill" class="slot-pill disc">disconnected</span>
+        </h3>
+        <div>id: <code id="hook1Id">—</code></div>
+        <div>status: <span id="hook1Status">—</span></div>
+        <div>counter: <span id="hook1Counter">—</span></div>
+        <div>battery: <span id="hook1Batt">—</span></div>
+        <div>via: <span id="hook1Age">—</span></div>
+      </div>
+    </div>
+    <div class="stat-label" style="margin-top: 8px;">
+      Hook connect / disconnect is zone-driven on the Belt: entering the
+      danger zone enables auto-connect, and leaving it releases every slot
+      so the hooks can drop into their BLE-idle deep-sleep cycle. The pill
+      shows how Belt is currently hearing the hook:
+      <b style="color: var(--ok);">connected</b>
+      = active GATT subscription with status notifies within the last 3 s;
+      <b style="color: var(--warn);">advertisement</b>
+      = no live notify but Belt's scan still sees the hook on air;
+      <b style="color: var(--muted);">disappear</b>
+      = nothing heard from this hook in either channel for &gt; 5 s.
+    </div>
+  </div>
+
+  <!-- ── Live beacon (gate-level reference) ─────────────────────── -->
+  <div class="card">
+    <h2>Live Beacon (biggest matched)</h2>
+    <div class="row" style="align-items: center;">
+      <div class="col">
+        <div class="stat-num" id="liveRssi">—</div>
+        <div class="stat-label">current RSSI (dBm)</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="liveTxp">—</div>
+        <div class="stat-label">tx power (dBm @1m)</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="liveMajor">—</div>
+        <div class="stat-label">major</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="liveMinor">—</div>
+        <div class="stat-label">minor</div>
+      </div>
+      <div class="col">
+        <div class="stat-num" id="liveRole">—</div>
+        <div class="stat-label">role</div>
+      </div>
+    </div>
+    <div style="margin-top: 8px;">
+      UUID: <code id="liveUuid">—</code>
+      <button id="liveCopyUuid" style="margin-left: 8px; padding: 4px 10px; font-size: 12px;">Copy → Add form</button>
+    </div>
+    <div class="stat-label" style="margin-top: 6px;" id="liveAge">no fresh match</div>
+    <div class="stat-label" style="margin-top: 4px;">
+      Tip: stand where you want danger to begin → read RSSI → set the
+      sensitivity slightly weaker (e.g. RSSI − 5 dBm) so light fluctuation
+      doesn't drop you out.
+    </div>
+
+    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+      <h3 style="margin: 0 0 6px;">RSSI smoothing α (EWMA)</h3>
+      <div class="row" style="align-items: center;">
+        <input id="smoothAlpha" type="range" min="0.01" max="1.0" step="0.01" value="0.20" style="flex: 1; max-width: 320px;">
+        <input id="smoothAlphaNum" type="number" min="0.01" max="1.0" step="0.01" value="0.20" style="width: 80px;">
+        <button id="smoothApplyBtn" class="primary">Apply</button>
+        <span class="stat-label">firmware: <code id="smoothAlphaCur">—</code></span>
+      </div>
+      <div class="stat-label" style="margin-top: 4px;">
+        1.0 = raw RSSI (no smoothing). Lower = stronger smoothing across scan
+        cycles. 0.2 default; 0.05 = strong (≈4 s response). The "firmware"
+        value updates as soon as Belt confirms the new α.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Beacon whitelist ────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Beacon Whitelist</h2>
+    <div style="margin-bottom: 10px;">
+      <button id="bcnListBtn">Refresh List</button>
+      <button id="bcnClearBtn" class="danger">Clear All</button>
+    </div>
+
+    <h3>Add</h3>
+    <div class="row" style="align-items: center;">
+      <div>
+        <label>UUID (32 hex):</label><br>
+        <input id="bcnAddUuid" type="text" size="38" value="B5B182C7EAB14988AA99B5C1517008D8">
+      </div>
+      <div>
+        <label>Sensitivity (dBm):</label><br>
+        <input id="bcnAddSens" type="number" value="-75" style="width: 80px;">
+      </div>
+      <div>
+        <label>Role:</label><br>
+        <select id="bcnAddRole">
+          <option value="0">DANGER</option>
+          <option value="1">SAFE</option>
+        </select>
+      </div>
+      <div style="align-self: flex-end;">
+        <button id="bcnAddBtn" class="primary">Add</button>
+      </div>
+    </div>
+
+    <h3>Remove</h3>
+    <div class="row" style="align-items: center;">
+      <div>
+        <label>UUID:</label><br>
+        <input id="bcnDelUuid" type="text" size="38">
+      </div>
+      <div style="align-self: flex-end;">
+        <button id="bcnDelBtn" class="danger">Remove</button>
+      </div>
+    </div>
+
+    <h3>Current</h3>
+    <table>
+      <thead>
+        <tr><th style="width: 30px;">#</th><th>UUID</th>
+            <th style="width: 80px;">Sens (dBm)</th><th style="width: 80px;">Role</th></tr>
+      </thead>
+      <tbody id="bcnTable">
+        <tr><td colspan="4" class="stat-label">click "Refresh List" once connected</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── System ──────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>System</h2>
+    <button id="getStateBtn">Get State Now</button>
+    <button id="rebootBtn" class="danger">Reboot</button>
+  </div>
+
+  <!-- ── Device Info (BLE DIS service) ─────────────────────────── -->
+  <div class="card">
+    <h2>Device Info</h2>
+    <table>
+      <tr><td style="width:160px;">Model</td><td><code id="disModel">—</code></td></tr>
+      <tr><td>Firmware</td><td><code id="disFw">—</code></td></tr>
+      <tr><td>Hardware</td><td><code id="disHw">—</code></td></tr>
+    </table>
+  </div>
+
+  <!-- ── Firmware OTA (BLE push) ───────────────────────────────── -->
+  <div class="card">
+    <h2>Firmware OTA (BLE push, no USB needed)</h2>
+    <div class="row" style="align-items:center;">
+      <input id="otaFile" type="file" accept=".bin" />
+      <button id="otaStart" disabled>Start OTA</button>
+      <button id="otaCancel" disabled>Cancel</button>
+    </div>
+    <div style="margin-top:10px;">
+      <div id="otaProgressBar"
+           style="height:14px;background:#eee;border-radius:7px;overflow:hidden;
+                  border:1px solid #ccc;">
+        <div id="otaProgressFill"
+             style="height:100%;width:0%;background:#4caf50;transition:width 0.2s;"></div>
+      </div>
+      <div id="otaStatus" style="margin-top:6px;font-size:0.92em;color:#555;">
+        Pick a firmware <code>.bin</code> from <code>firmware/release/</code>.
+        OTA service is exposed by Belt firmware ≥ NimBLE-2.x cut.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Log ─────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Log</h2>
+    <div id="log" class="log"></div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── BLE service & characteristic UUIDs (must match firmware/src/belt_ble_server.h)
+const SVC     = '83940100-5273-9374-2109-847320948571';
+const TX_UUID = '83940101-5273-9374-2109-847320948571';
+const RX_UUID = '83940102-5273-9374-2109-847320948571';
+
+// h2zero/NimBLEOta — same layout as on the hook
+const OTA_SERVICE_UUID  = '00008018-0000-1000-8000-00805f9b34fb';
+const OTA_FIRMWARE_UUID = '00008020-0000-1000-8000-00805f9b34fb';
+const OTA_COMMAND_UUID  = '00008022-0000-1000-8000-00805f9b34fb';
+const DIS_SERVICE_UUID  = '0000180a-0000-1000-8000-00805f9b34fb';
+
+// ── Notify types (server→client)
+const NOTIFY_ACK             = 0x80;
+const NOTIFY_NACK            = 0x81;
+const NOTIFY_BELT_STATUS     = 0x90;
+const NOTIFY_HOOK_STATUS     = 0x91;
+const NOTIFY_BEACON_ENTRY    = 0x92;
+const NOTIFY_BIGGEST_BEACON  = 0x93;
+const NOTIFY_BCN_SMOOTH      = 0x94;
+const NOTIFY_HOOK_ADV        = 0x96;
+
+// ── Command bytes (client→server)
+const CMD_GET_STATE        = 0x10;
+const CMD_BCN_OP           = 0x12;
+const CMD_REBOOT           = 0x14;
+const CMD_SET_BCN_SMOOTH       = 0x18;
+const CMD_RELEASE_HOOK         = 0x1A;
+const CMD_CLEAR_HOOK_BLACKLIST = 0x1C;
+
+const BCN_ADD              = 0x00;
+const BCN_REMOVE           = 0x01;
+const BCN_CLEAR            = 0x02;
+const BCN_LIST             = 0x03;
+
+// ── State
+let device = null, txChar = null, rxChar = null;
+let otaService = null, otaCommandChar = null, otaFirmwareChar = null;
+let otaFile = null;
+let otaInProgress = false, otaCancelRequested = false;
+let pendingCmdAck = null, pendingFwAck = null;
+// Per-slot freshness + cached payload from each of the two sources Belt
+// can hear a hook on. The unified Hook Slots panel picks whichever
+// source is currently fresh (preferring connected) and renders + colours
+// the pill accordingly.
+const hookConnLastMs = [0, 0];   // last ms we received a 0x91 HOOK_STATUS notify
+const hookAdvLastMs  = [0, 0];   // last ms we received a 0x96 HOOK_ADV notify
+const hookConnData   = [null, null];  // {id, status, counter, battLevel, battMode}
+const hookAdvData    = [null, null];  // same shape; trailed-age in ms also stashed
+
+// Latest belt + hook state, cached so the zone light can recompute its
+// three-tier visual state (green / orange / red) on every incoming notify.
+// The Belt firmware only pushes raw belt_struct + per-slot hook status; the
+// emergency tier is derived here to mirror emergency_task on the device.
+let lastBelt = null;            // {location, reed, battLevel, battMode}
+const lastHook = [null, null];  // each slot: {status, counter, battLevel, battMode}
+
+// ── Helpers
+function $(id) { return document.getElementById(id); }
+function log(msg, cls) {
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  const ts = document.createElement('span');
+  ts.className = 'ts';
+  ts.textContent = `[${new Date().toLocaleTimeString()}] `;
+  line.appendChild(ts);
+  line.append(msg);
+  $('log').appendChild(line);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function hexBytes(arr) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+}
+function formatUuid(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('');
+}
+function parseHexUuid(str) {
+  const cleaned = (str || '').replace(/[^0-9a-fA-F]/g, '');
+  if (cleaned.length !== 32) return null;
+  const out = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) out[i] = parseInt(cleaned.substr(i*2, 2), 16);
+  return out;
+}
+function setConnState(text, cls) {
+  const el = $('connState');
+  el.textContent = text;
+  el.className = `pill ${cls || ''}`;
+}
+
+// ── Connect / disconnect
+async function connect() {
+  if (!navigator.bluetooth) {
+    log('Web Bluetooth not available — use Chrome/Edge on desktop, or Chrome on Android.', 'err');
+    return;
+  }
+  try {
+    setConnState('requesting…');
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SVC] }, { namePrefix: 'BELT-' }],
+      // Web Bluetooth blocks getPrimaryService() for any UUID not declared
+      // up front. List OTA + DIS so the OTA card and Device Info table can
+      // resolve their services after the connection is established.
+      optionalServices: [SVC, OTA_SERVICE_UUID, DIS_SERVICE_UUID],
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    log(`requested ${device.name}, connecting GATT…`);
+    setConnState('connecting…');
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SVC);
+    rxChar = await service.getCharacteristic(RX_UUID);
+    txChar = await service.getCharacteristic(TX_UUID);
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged', onNotify);
+    setConnState(`connected: ${device.name}`, 'ok');
+    log(`connected to ${device.name}`, 'ok');
+
+    // Optional Device Information Service (DIS) — read on connect.
+    try {
+      const dis = await server.getPrimaryService(DIS_SERVICE_UUID);
+      const dec = new TextDecoder();
+      const readChar = async (uuid) => {
+        try {
+          const c = await dis.getCharacteristic(uuid);
+          const v = await c.readValue();
+          return dec.decode(v.buffer);
+        } catch (_) { return ''; }
+      };
+      const [model, fw, hw] = await Promise.all([
+        readChar('00002a24-0000-1000-8000-00805f9b34fb'),
+        readChar('00002a26-0000-1000-8000-00805f9b34fb'),
+        readChar('00002a27-0000-1000-8000-00805f9b34fb'),
+      ]);
+      $('disModel').textContent = model || '—';
+      $('disFw').textContent    = fw    || '—';
+      $('disHw').textContent    = hw    || '—';
+      log(`DIS: ${model} / fw=${fw} / hw=${hw}`);
+    } catch (_) {
+      log('DIS not present (firmware too old).');
+    }
+
+    // Optional OTA service — same h2zero/NimBLEOta protocol the hook uses.
+    try {
+      otaService      = await server.getPrimaryService(OTA_SERVICE_UUID);
+      otaCommandChar  = await otaService.getCharacteristic(OTA_COMMAND_UUID);
+      otaFirmwareChar = await otaService.getCharacteristic(OTA_FIRMWARE_UUID);
+      await otaCommandChar.startNotifications();
+      await otaFirmwareChar.startNotifications();
+      otaCommandChar.addEventListener('characteristicvaluechanged', handleOtaCmdNotify);
+      otaFirmwareChar.addEventListener('characteristicvaluechanged', handleOtaFwNotify);
+      $('otaStart').disabled = !otaFile;
+      log('OTA service ready.');
+    } catch (_) {
+      log('OTA service not present on this Belt (firmware too old).');
+      otaService = null;
+    }
+  } catch (e) {
+    log(`connect error: ${e}`, 'err');
+    setConnState('disconnected', 'err');
+  }
+}
+
+function disconnect() {
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+}
+
+function onDisconnected() {
+  setConnState('disconnected', 'err');
+  $('zoneLight').className = 'alarm-light alarm-gray';
+  $('zoneText').textContent = 'disconnected';
+  lastBelt = null;
+  lastHook[0] = null;
+  lastHook[1] = null;
+  log('disconnected', 'err');
+  txChar = null; rxChar = null;
+  otaService = null; otaCommandChar = null; otaFirmwareChar = null;
+  if (otaInProgress) {
+    otaCancelRequested = true;
+    log('OTA aborted (device disconnected).');
+  }
+  $('otaStart').disabled  = true;
+  $('otaCancel').disabled = true;
+  ['disModel','disFw','disHw'].forEach(id => { $(id).textContent = '—'; });
+}
+
+// ── Notify dispatcher
+function onNotify(ev) {
+  const data = new Uint8Array(ev.target.value.buffer);
+  if (data.length < 1) return;
+  const t = data[0];
+  switch (t) {
+    case NOTIFY_ACK:           handleAck(data); break;
+    case NOTIFY_NACK:          handleNack(data); break;
+    case NOTIFY_BELT_STATUS:   handleBeltStatus(data); break;
+    case NOTIFY_HOOK_STATUS:   handleHookStatus(data); break;
+    case NOTIFY_BEACON_ENTRY:  handleBeaconEntry(data); break;
+    case NOTIFY_BIGGEST_BEACON: handleBiggestBeacon(data); break;
+    case NOTIFY_BCN_SMOOTH:    handleBcnSmooth(data); break;
+    case NOTIFY_HOOK_ADV:      handleHookAdv(data); break;
+    default:
+      log(`unknown notify type=0x${t.toString(16)} data=${hexBytes(data)}`);
+  }
+}
+
+function handleAck(d) {
+  if (d.length < 2) { log('ACK (short)', 'ok'); return; }
+  log(`ACK 0x${d[1].toString(16).padStart(2,'0').toUpperCase()}`, 'ok');
+}
+function handleNack(d) {
+  const err = d.length >= 2 ? d[1] : 0;
+  const tag = ({1:'BAD_CMD', 2:'BAD_LENGTH', 3:'OP_FAILED'})[err] || `0x${err.toString(16)}`;
+  log(`NACK ${tag}`, 'err');
+}
+
+function handleBeltStatus(d) {
+  // d = [0x90, batt_level, batt_mode, location, reed_status]
+  if (d.length < 5) return;
+  const battLevel = d[1];
+  const battMode  = d[2];
+  const location  = d[3];
+  const reed      = d[4];
+  $('battLevel').textContent = battLevel;
+  $('battMode').textContent  = ({0:'NORMAL',1:'POWER_SAVING',2:'CHARGING'})[battMode] || battMode;
+  $('reedStatus').textContent = ({0:'normal',1:'ALARM',2:'ignored'})[reed] || reed;
+  lastBelt = { location, reed, battLevel, battMode };
+  refreshZoneLight();
+}
+
+// Three-tier zone-light state, derived from belt.location + both hook slots:
+//   green   — outside danger zone (location == 0)
+//   orange  — inside danger zone but at least one hook is still detecting
+//             metal (warning; the Belt firmware does NOT pulse LED/buzzer
+//             yet)
+//   red     — inside danger zone AND both hooks report status==ALARM
+//             (matches firmware emergency_task condition that drives the
+//             physical LED + buzzer)
+function refreshZoneLight() {
+  const light = $('zoneLight');
+  const text  = $('zoneText');
+  if (!lastBelt) {
+    light.className = 'alarm-light alarm-gray';
+    text.textContent = 'unknown';
+    return;
+  }
+  if (lastBelt.location !== 1) {
+    light.className = 'alarm-light alarm-green';
+    text.textContent = 'safe';
+    return;
+  }
+  const bothAlarm = lastHook[0] && lastHook[1]
+                    && lastHook[0].status === 1
+                    && lastHook[1].status === 1;
+  if (bothAlarm) {
+    light.className = 'alarm-light alarm-red';
+    text.textContent = 'EMERGENCY';
+  } else {
+    light.className = 'alarm-light alarm-orange';
+    text.textContent = 'IN ZONE';
+  }
+}
+
+// ── 0x91 HOOK_STATUS (connected, GATT 0x03 status forward)
+//   d = [0x91, slot_idx, batt_level, batt_mode, id[6], status, not_detected_counter]
+function handleHookStatus(d) {
+  if (d.length < 12) return;
+  const slot = d[1];
+  if (slot !== 0 && slot !== 1) return;
+  const id = d.slice(4, 10);
+  hookConnData[slot] = {
+    id, idStr: formatUuid(id).match(/.{2}/g).join(':'),
+    status:    d[10],
+    counter:   d[11],
+    battLevel: d[2],
+    battMode:  d[3],
+  };
+  hookConnLastMs[slot] = Date.now();
+  // Zone-light state derives from connected-side data only — it's the
+  // authoritative path the Belt makes alarm decisions on.
+  lastHook[slot] = hookConnData[slot];
+  refreshZoneLight();
+  refreshHookSlot(slot);
+}
+
+// ── 0x96 HOOK_ADV (passive-scan manufacturer data, independent of GATT)
+//   d = [0x96, slot_idx, age_ms_lo, age_ms_hi,
+//        batt_level, batt_mode, id[6], status, not_detected_counter]
+//   Length = 14 bytes. age_ms is uint16 LE (capped at 65535 by firmware).
+//
+// id[6] arrives LSB-first because Hook firmware's set_hook_id() lays out
+// efuse-MAC bytes in that order into the manufacturer data. Reverse here
+// so the Hook Slots panel renders IDs in MSB-first format consistent
+// with the connected-side status notify path.
+function handleHookAdv(d) {
+  if (d.length < 14) return;
+  const slot = d[1];
+  if (slot !== 0 && slot !== 1) return;
+  const age_ms = d[2] | (d[3] << 8);
+  const idLsb = d.slice(6, 12);
+  const id    = new Uint8Array([...idLsb].reverse());
+  hookAdvData[slot] = {
+    id, idStr: formatUuid(id).match(/.{2}/g).join(':'),
+    status:    d[12],
+    counter:   d[13],
+    battLevel: d[4],
+    battMode:  d[5],
+    advAgeMs:  age_ms,   // firmware-side age (Belt → console latency excluded)
+  };
+  hookAdvLastMs[slot] = Date.now();
+  refreshHookSlot(slot);
+}
+
+// Render a single hook slot card based on whichever source (connected /
+// advertisement) is currently fresh. Called from the per-notify handlers
+// AND from the 1 Hz tick that ages stale slots into 'disappear'.
+function refreshHookSlot(slot) {
+  const now = Date.now();
+  const conn = hookConnData[slot];
+  const adv  = hookAdvData[slot];
+  // "connected" needs a fresh notify. Threshold is 7 s to cover the
+  // worst Belt-side push cadence: belt charging FULL pushes HOOK_STATUS
+  // every 5 s (vs the normal-mode pushStateOnce 1 Hz). With a 3 s
+  // threshold the pill flickered connected ↔ disappear every 5 s in
+  // charging mode even though Belt was happily relaying data the whole
+  // time. 7 s = 5 s push + 2 s slack.
+  const connFresh = !!conn && (now - hookConnLastMs[slot]) <= 7000;
+  // "advertisement" requires a recent BELT_NOTIFY_HOOK_ADV (Belt push
+  // cadence) AND a fresh-enough firmware-side age (so a stuck "≥ 65.5 s"
+  // sentinel doesn't masquerade as live).
+  const advFresh  = !!adv  && (now - hookAdvLastMs[slot]) <= 3000
+                            && adv.advAgeMs <= 5000;
+  let pillText, pillClass, src, view;
+  if (connFresh) {
+    pillText = 'connected'; pillClass = 'live';
+    view = conn; src = 'GATT';
+  } else if (advFresh) {
+    pillText = 'advertisement'; pillClass = 'adv';
+    view = adv; src = `advert ${(adv.advAgeMs / 1000).toFixed(1)}s old`;
+  } else {
+    pillText = 'disappear'; pillClass = 'disc';
+    // Show whichever cached payload is newer (might be 0 if never seen).
+    view = (hookConnLastMs[slot] >= hookAdvLastMs[slot]) ? conn : adv;
+    src  = (hookConnLastMs[slot] || hookAdvLastMs[slot])
+      ? 'last seen ' + Math.round((now - Math.max(hookConnLastMs[slot], hookAdvLastMs[slot])) / 1000) + 's ago'
+      : '';
+  }
+  const prefix = `hook${slot}`;
+  if (view) {
+    $(`${prefix}Id`).textContent      = view.idStr === '00:00:00:00:00:00' ? '(unset)' : view.idStr;
+    $(`${prefix}Status`).textContent  = ({0:'normal',1:'ALARM',2:'unknown'})[view.status] || view.status;
+    $(`${prefix}Counter`).textContent = view.counter;
+    $(`${prefix}Batt`).textContent    = `${view.battLevel} (mode=${view.battMode})`;
+  }
+  $(`${prefix}Age`).textContent = src;
+  const pill = $(`${prefix}Pill`);
+  pill.textContent = pillText;
+  pill.className   = `slot-pill ${pillClass}`;
+  $(`${prefix}Card`).classList.toggle('stale', pillClass === 'disc');
+  // Drop cached connected data when we move to disappear so a flapping
+  // hook can't visually downgrade EMERGENCY back to IN ZONE on the
+  // zone-light side.
+  if (pillClass === 'disc' && lastHook[slot] !== null) {
+    lastHook[slot] = null;
+    refreshZoneLight();
+  }
+}
+
+// ── 0x93 BIGGEST_BEACON
+//   d = [0x93] + peripheral_beacon_struct (26B):
+//       battery(2: level, mode) + uuid(16) + rssi(int16 LE) + major(u16 LE)
+//       + minor(u16 LE) + txp(int8) + role(u8)
+let lastLiveBeaconMs = 0;
+function handleBiggestBeacon(d) {
+  if (d.length < 1 + 26) return;
+  // skip battery bytes (1..2): always zero for beacons in current firmware
+  const uuid = d.slice(3, 19);
+  const rssi  = (d[19] | (d[20] << 8)) | 0; const rssiSigned = (rssi << 16) >> 16;
+  const major = d[21] | (d[22] << 8);
+  const minor = d[23] | (d[24] << 8);
+  const txp   = (d[25] << 24) >> 24;  // sign-extend int8
+  const role  = d[26];
+  const uuidStr = formatUuid(uuid);
+  $('liveRssi').textContent  = rssiSigned;
+  $('liveTxp').textContent   = txp;
+  $('liveMajor').textContent = major;
+  $('liveMinor').textContent = minor;
+  $('liveRole').textContent  = role === 0 ? 'DANGER' : (role === 1 ? 'SAFE' : role);
+  $('liveUuid').textContent  = uuidStr;
+  $('liveAge').textContent   = `last update ${new Date().toLocaleTimeString()}`;
+  lastLiveBeaconMs = Date.now();
+}
+
+// ── 0x94 BCN_SMOOTH echo
+function handleBcnSmooth(d) {
+  if (d.length < 1 + 4) return;
+  const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  const alpha = dv.getFloat32(1, true);
+  $('smoothAlphaCur').textContent = alpha.toFixed(3);
+}
+
+function handleBeaconEntry(d) {
+  // d = [0x92, idx, total, uuid[16], sens(int16 LE), role, reserve]
+  if (d.length < 23) return;
+  const idx   = d[1];
+  const total = d[2];
+  const e     = d.slice(3);
+  const uuid  = formatUuid(e.slice(0, 16));
+  const rawSens = e[16] | (e[17] << 8);
+  const sens  = rawSens >= 0x8000 ? rawSens - 0x10000 : rawSens;  // sign-extend int16
+  const role  = e[18];
+  if (idx === 0) $('bcnTable').innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${idx}</td>
+                  <td><code>${uuid}</code></td>
+                  <td>${sens}</td>
+                  <td>${role === 0 ? 'DANGER' : 'SAFE'}</td>`;
+  $('bcnTable').appendChild(tr);
+  log(`whitelist [${idx}/${total - 1}] ${uuid} sens=${sens} role=${role === 0 ? 'DANGER' : 'SAFE'}`);
+}
+
+// ── Send helpers
+async function send(bytes) {
+  if (!rxChar) { log('not connected', 'err'); return; }
+  try {
+    await rxChar.writeValue(bytes);
+  } catch (e) {
+    log(`write error: ${e}`, 'err');
+  }
+}
+
+// ── Wire up UI
+$('connectBtn').onclick    = connect;
+$('disconnectBtn').onclick = disconnect;
+
+$('getStateBtn').onclick = () => send(new Uint8Array([CMD_GET_STATE]));
+
+$('rebootBtn').onclick = () => {
+  if (!confirm('Reboot the belt?')) return;
+  send(new Uint8Array([CMD_REBOOT]));
+};
+
+$('bcnListBtn').onclick = () => {
+  $('bcnTable').innerHTML = '<tr><td colspan="4" class="stat-label">requesting…</td></tr>';
+  send(new Uint8Array([CMD_BCN_OP, BCN_LIST]));
+};
+
+$('bcnClearBtn').onclick = () => {
+  if (!confirm('Clear ALL whitelist entries?')) return;
+  send(new Uint8Array([CMD_BCN_OP, BCN_CLEAR]));
+  $('bcnTable').innerHTML = '<tr><td colspan="4" class="stat-label">cleared. Refresh to confirm.</td></tr>';
+};
+
+$('bcnAddBtn').onclick = () => {
+  const uuid = parseHexUuid($('bcnAddUuid').value);
+  if (!uuid) { log('invalid UUID (need 32 hex chars)', 'err'); return; }
+  const sens = parseInt($('bcnAddSens').value, 10);
+  const role = parseInt($('bcnAddRole').value, 10);
+  // beacon_regs_struct_v2 = uuid(16) + sens(int16 LE) + role(1) + reserve(1) = 20B
+  const buf = new Uint8Array(2 + 20);
+  buf[0] = CMD_BCN_OP;
+  buf[1] = BCN_ADD;
+  buf.set(uuid, 2);
+  buf[18] = sens & 0xFF;
+  buf[19] = (sens >> 8) & 0xFF;
+  buf[20] = role;
+  buf[21] = 0;
+  send(buf);
+};
+
+$('bcnDelBtn').onclick = () => {
+  const uuid = parseHexUuid($('bcnDelUuid').value);
+  if (!uuid) { log('invalid UUID', 'err'); return; }
+  const buf = new Uint8Array(2 + 16);
+  buf[0] = CMD_BCN_OP;
+  buf[1] = BCN_REMOVE;
+  buf.set(uuid, 2);
+  send(buf);
+};
+
+// 1 Hz tick that re-renders both hook slots + ages out the live beacon
+// card. refreshHookSlot() handles its own state-machine (connected →
+// advertisement → disappear) and drops cached connected data on
+// disappear so a flapping hook can't visually downgrade a real
+// EMERGENCY back to IN ZONE.
+setInterval(() => {
+  for (let i = 0; i < 2; i++) refreshHookSlot(i);
+
+  if (lastLiveBeaconMs > 0) {
+    const ageBcn = (Date.now() - lastLiveBeaconMs) / 1000;
+    if (ageBcn > 5) {
+      $('liveRssi').textContent  = '—';
+      $('liveTxp').textContent   = '—';
+      $('liveMajor').textContent = '—';
+      $('liveMinor').textContent = '—';
+      $('liveRole').textContent  = '—';
+      $('liveUuid').textContent  = '—';
+      $('liveAge').textContent   = `no fresh match (last ${ageBcn.toFixed(0)}s ago)`;
+    }
+  }
+}, 1000);
+
+// Copy the live UUID into the Add-beacon form so the user can pin it as a
+// whitelist entry without retyping 32 hex chars.
+$('liveCopyUuid').onclick = () => {
+  const u = $('liveUuid').textContent;
+  if (u && u !== '—') {
+    $('bcnAddUuid').value = u;
+    log(`copied UUID ${u} to Add form`);
+  }
+};
+
+// Keep range slider + number input synced
+$('smoothAlpha').oninput = () => { $('smoothAlphaNum').value = $('smoothAlpha').value; };
+$('smoothAlphaNum').oninput = () => {
+  const v = parseFloat($('smoothAlphaNum').value);
+  if (!isNaN(v)) $('smoothAlpha').value = Math.min(Math.max(v, 0.01), 1.0);
+};
+
+// Hook connect / disconnect is now zone-driven on Belt firmware side; the
+// per-slot manual buttons were removed (they kept causing confusion when
+// auto-connect already runs in the background). The 0x1A / 0x1C BLE
+// commands still exist in firmware for AT-debug parity (AT+HOOK_RELEASE).
+
+$('smoothApplyBtn').onclick = () => {
+  const a = parseFloat($('smoothAlphaNum').value);
+  if (isNaN(a) || a < 0.01 || a > 1.0) {
+    log('alpha must be 0.01..1.0', 'err');
+    return;
+  }
+  // payload: [cmd][float32 LE]
+  const buf = new ArrayBuffer(1 + 4);
+  const dv = new DataView(buf);
+  dv.setUint8(0, CMD_SET_BCN_SMOOTH);
+  dv.setFloat32(1, a, true);
+  send(new Uint8Array(buf));
+};
+
+// ── OTA: h2zero/NimBLEOta protocol over Web Bluetooth ──────────────────────
+// Identical to tools/hook_ble_console.html's OTA implementation. Web BLE's
+// CoreBluetooth bridge auto-confirms indications, so this path works on
+// macOS where the native python script (tools/nimbleota.py) hangs at sector 1.
+
+const OTA_START_CMD       = 0x0001;
+const OTA_ACK_ACCEPTED    = 0x0000;
+const OTA_FW_ACK_SUCCESS  = 0x0000;
+const OTA_FW_ACK_CRC      = 0x0001;
+const OTA_FW_ACK_SECTOR   = 0x0002;
+const OTA_FW_ACK_LEN      = 0x0003;
+
+function crc16Ccitt(buf) {
+  let crc = 0;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= buf[i] << 8;
+    for (let b = 0; b < 8; b++) {
+      if (crc & 0x8000) crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      else              crc =  (crc << 1) & 0xFFFF;
+    }
+  }
+  return crc;
+}
+
+function handleOtaCmdNotify(event) {
+  const data = new Uint8Array(event.target.value.buffer);
+  if (data.length !== 20) return;
+  const rsp = data[4] | (data[5] << 8);
+  if (pendingCmdAck) {
+    const p = pendingCmdAck; pendingCmdAck = null;
+    clearTimeout(p.timeout);
+    p.resolve(rsp);
+  }
+}
+
+function handleOtaFwNotify(event) {
+  const data = new Uint8Array(event.target.value.buffer);
+  if (data.length !== 20) return;
+  const status     = data[2] | (data[3] << 8);
+  const curSector  = data[4] | (data[5] << 8);
+  if (pendingFwAck) {
+    const p = pendingFwAck; pendingFwAck = null;
+    clearTimeout(p.timeout);
+    p.resolve({status, curSector});
+  }
+}
+
+function awaitAck(slot, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const o = {resolve, reject};
+    o.timeout = setTimeout(() => {
+      if (slot === 'cmd') pendingCmdAck = null;
+      else                pendingFwAck  = null;
+      reject(new Error(`${slot} ack timeout (${timeoutMs}ms)`));
+    }, timeoutMs);
+    if (slot === 'cmd') pendingCmdAck = o;
+    else                pendingFwAck  = o;
+  });
+}
+
+function buildSector(sectorBytes) {
+  const crc = crc16Ccitt(sectorBytes);
+  const out = new Uint8Array(sectorBytes.length + 2);
+  out.set(sectorBytes);
+  out[out.length - 2] = crc & 0xFF;
+  out[out.length - 1] = (crc >> 8) & 0xFF;
+  return out;
+}
+
+async function uploadSector(sector, sectorIdx, isLastSector) {
+  const MAX_PAYLOAD = 512 - 3 - 3;
+  const idxToSend = isLastSector ? 0xFFFF : sectorIdx;
+  const chunks = [];
+  for (let i = 0; i < sector.length; i += MAX_PAYLOAD) {
+    chunks.push(sector.slice(i, i + MAX_PAYLOAD));
+  }
+  for (let s = 0; s < chunks.length; s++) {
+    const seq = (s === chunks.length - 1) ? 0xFF : s;
+    const pkt = new Uint8Array(3 + chunks[s].length);
+    pkt[0] = idxToSend & 0xFF;
+    pkt[1] = (idxToSend >> 8) & 0xFF;
+    pkt[2] = seq;
+    pkt.set(chunks[s], 3);
+    if (otaFirmwareChar.writeValueWithoutResponse) {
+      await otaFirmwareChar.writeValueWithoutResponse(pkt);
+    } else {
+      await otaFirmwareChar.writeValue(pkt);
+    }
+  }
+}
+
+function setOtaStatus(text) { $('otaStatus').textContent = text; }
+function setOtaProgress(pct) { $('otaProgressFill').style.width = pct.toFixed(1) + '%'; }
+
+async function runOta() {
+  if (!otaService || !otaFile) return;
+  otaInProgress = true;
+  otaCancelRequested = false;
+  $('otaStart').disabled  = true;
+  $('otaCancel').disabled = false;
+  try {
+    const fileBuf = new Uint8Array(await otaFile.arrayBuffer());
+    const fileSize = fileBuf.length;
+    log(`OTA: ${otaFile.name}  ${fileSize} bytes`);
+    setOtaStatus(`Sending START... (${fileSize} bytes)`);
+
+    const SECTOR = 4096;
+    const sectors = [];
+    for (let i = 0; i < fileSize; i += SECTOR) {
+      sectors.push(buildSector(fileBuf.slice(i, i + SECTOR)));
+    }
+    const totalSectors = sectors.length;
+
+    const startPkt = new Uint8Array(20);
+    startPkt[0] = OTA_START_CMD & 0xFF;
+    startPkt[1] = (OTA_START_CMD >> 8) & 0xFF;
+    startPkt[2] = fileSize & 0xFF;
+    startPkt[3] = (fileSize >> 8) & 0xFF;
+    startPkt[4] = (fileSize >> 16) & 0xFF;
+    startPkt[5] = (fileSize >> 24) & 0xFF;
+    const startCrc = crc16Ccitt(startPkt.slice(0, 18));
+    startPkt[18] = startCrc & 0xFF;
+    startPkt[19] = (startCrc >> 8) & 0xFF;
+
+    const ackPromise = awaitAck('cmd', 10000);
+    await otaCommandChar.writeValue(startPkt);
+    const startRsp = await ackPromise;
+    if (startRsp !== OTA_ACK_ACCEPTED) throw new Error(`START rejected (rsp=${startRsp})`);
+
+    for (let i = 0; i < totalSectors; i++) {
+      if (otaCancelRequested) throw new Error('cancelled');
+      const isLast = (i === totalSectors - 1);
+      const sector = sectors[i];
+      let attempts = 0;
+      while (true) {
+        attempts++;
+        const fwAck = awaitAck('fw', 15000);
+        await uploadSector(sector, i, isLast);
+        const r = await fwAck;
+        if (r.status === OTA_FW_ACK_SUCCESS) break;
+        if (r.status === OTA_FW_ACK_CRC || r.status === OTA_FW_ACK_LEN) {
+          if (attempts >= 3) throw new Error(`sector ${i} repeated CRC/LEN error`);
+          continue;
+        }
+        if (r.status === OTA_FW_ACK_SECTOR) { i = r.curSector - 1; break; }
+        throw new Error(`unknown fw_ack status=${r.status}`);
+      }
+      const pct = ((i + 1) / totalSectors) * 100;
+      setOtaProgress(pct);
+      setOtaStatus(`${pct.toFixed(1)}%  (sector ${i + 1}/${totalSectors})`);
+    }
+    setOtaStatus('Complete — Belt will restart in ~2s');
+    log('OTA: complete');
+  } catch (e) {
+    setOtaStatus(`Failed: ${e.message || e}`);
+    log(`OTA error: ${e.message || e}`, 'err');
+  } finally {
+    otaInProgress = false;
+    $('otaCancel').disabled = true;
+    $('otaStart').disabled = !(otaService && otaFile);
+  }
+}
+
+$('otaFile').addEventListener('change', (e) => {
+  otaFile = e.target.files[0] || null;
+  $('otaStart').disabled = !(otaService && otaFile);
+  if (otaFile) setOtaStatus(`Picked ${otaFile.name} (${otaFile.size} bytes). Click Start OTA.`);
+});
+$('otaStart').addEventListener('click', runOta);
+$('otaCancel').addEventListener('click', () => {
+  otaCancelRequested = true;
+  log('OTA cancel requested.');
+});
+
+if (!navigator.bluetooth) {
+  log('Web Bluetooth NOT available — use Chrome/Edge desktop, or Chrome on Android.', 'err');
+} else {
+  log('ready. click Connect.');
+}
+</script>
+</body>
+</html>

@@ -52,6 +52,8 @@ declare -a MD_PAIRS=(
 declare -a RAW_PAIRS=(
   "$BELT_SRC/firmware/release/README.md::belt/flashing.md"
   "$HOOK_SRC/firmware/release/README.md::hook/flashing.md"
+  "$BELT_SRC/tools/belt_ble_console.html::tools/belt_ble_console.html"
+  "$HOOK_SRC/tools/hook_ble_console.html::tools/hook_ble_console.html"
 )
 
 changed=0

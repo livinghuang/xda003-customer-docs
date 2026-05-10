@@ -35,6 +35,19 @@
 
 ---
 
+## Web BLE 維護工具
+
+兩支單檔 HTML，下載到本機後用 **Chrome / Edge 桌面版**直接開（Web Bluetooth 不支援 Safari）。連 Belt / Hook 不需要安裝任何 app。
+
+| 工具 | 用途 |
+|------|------|
+| [tools/belt_ble_console.html](tools/belt_ble_console.html) | 連 Belt → 即時看區域偵測、Hook slot 狀態（connected / advertisement / disappear 三態）、live beacon RSSI、推下行設定、推 OTA 升級 |
+| [tools/hook_ble_console.html](tools/hook_ble_console.html) | 連 Hook → 即時看磁場 X/Y/Z 三軸 + 圖表、警報狀態、推三軸靈敏度設定、推 OTA 升級 |
+
+每個版本的 release 也會把這兩個檔附在 assets，跟韌體 / PDF 一起整批下載。
+
+---
+
 ## 文件版次
 
 文件採用 markdown 為來源、PDF 為列印 / 歸檔附件，兩者由相同 markdown 產出。每次更新時 markdown 與 PDF 同步推送。
