@@ -954,7 +954,13 @@
       const pct = Math.min(100, (counter / max) * 100);
       mFill.style.width = pct + '%';
 
-      bVal.textContent = `${battLvl} (~${(battLvl / 255 * 100).toFixed(0)}%)`;
+      // Estimated voltage from level — inverse of firmware formula
+      //   level = (v - 3.0) / (4.2 - 3.0) × 255    (clamped 0..255)
+      //   v_est = 3.0 + (level / 255) × 1.2
+      // Accurate to <5 mV in 3.0..4.2 V; clamps reading to 4.20 V when the
+      // charger boost briefly pushes the cell above 4.2 V (level saturates).
+      const vEst = 3.0 + (battLvl / 255) * 1.2;
+      bVal.textContent = `${battLvl} (~${(battLvl / 255 * 100).toFixed(0)}%, ~${vEst.toFixed(3)}V)`;
       bMode.textContent = ({ 0: 'NORMAL', 1: 'LOW', 2: 'CHARGING' })[battMode] || battMode;
     }
 

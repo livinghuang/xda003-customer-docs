@@ -514,7 +514,11 @@ function handleBeltStatus(d) {
   const battMode  = d[2];
   const location  = d[3];
   const reed      = d[4];
-  $('battLevel').textContent = battLevel;
+  // v_est: inverse of firmware level formula `level = (v-3.0)/1.2 × 255`.
+  // <5 mV error in 3.0..4.2 V; saturates at 4.20 V when charging pushes
+  // above 4.2 V (level already clamped to 255 in firmware).
+  const vEstBelt = (3.0 + (battLevel / 255) * 1.2).toFixed(3);
+  $('battLevel').textContent = `${battLevel} (~${vEstBelt}V)`;
   $('battMode').textContent  = ({0:'NORMAL',1:'POWER_SAVING',2:'CHARGING'})[battMode] || battMode;
   $('reedStatus').textContent = ({0:'normal',1:'ALARM',2:'ignored'})[reed] || reed;
   lastBelt = { location, reed, battLevel, battMode };
@@ -643,7 +647,8 @@ function refreshHookSlot(slot) {
     $(`${prefix}Id`).textContent      = view.idStr === '00:00:00:00:00:00' ? '(unset)' : view.idStr;
     $(`${prefix}Status`).textContent  = ({0:'normal',1:'ALARM',2:'unknown'})[view.status] || view.status;
     $(`${prefix}Counter`).textContent = view.counter;
-    $(`${prefix}Batt`).textContent    = `${view.battLevel} (mode=${view.battMode})`;
+    const vEstHook = (3.0 + (view.battLevel / 255) * 1.2).toFixed(3);
+    $(`${prefix}Batt`).textContent    = `${view.battLevel} (~${vEstHook}V, mode=${view.battMode})`;
   }
   $(`${prefix}Age`).textContent = src;
   const pill = $(`${prefix}Pill`);
