@@ -533,6 +533,14 @@ function handleBeltStatus(d) {
 //   red     — inside danger zone AND both hooks report status==ALARM
 //             (matches firmware emergency_task condition that drives the
 //             physical LED + buzzer)
+// Window matching the Live Beacon card's own staleness (Belt pushes at 1 Hz;
+// 5 s grace). Beyond this with no fresh biggest-beacon notify, the Belt is
+// seeing no whitelisted beacon at all.
+const BEACON_FRESH_MS = 5000;
+function beaconFresh() {
+  return lastLiveBeaconMs > 0 && (Date.now() - lastLiveBeaconMs) <= BEACON_FRESH_MS;
+}
+
 function refreshZoneLight() {
   const light = $('zoneLight');
   const text  = $('zoneText');
@@ -542,8 +550,19 @@ function refreshZoneLight() {
     return;
   }
   if (lastBelt.location !== 1) {
-    light.className = 'alarm-light alarm-green';
-    text.textContent = 'safe';
+    // location is a binary danger flag, so 0 lumps together two very different
+    // situations: standing by a non-danger (SAFE-role) beacon, vs no whitelisted
+    // beacon in range at all. The biggest-beacon feed (0x93) only arrives while
+    // some whitelisted beacon is actually matched, so use its freshness to split
+    // them — "safe" should only claim safety when a beacon is genuinely seen;
+    // otherwise the worker is simply out of all coverage.
+    if (beaconFresh()) {
+      light.className = 'alarm-light alarm-green';
+      text.textContent = 'safe';
+    } else {
+      light.className = 'alarm-light alarm-gray';
+      text.textContent = 'NO BEACON';
+    }
     return;
   }
   const bothAlarm = lastHook[0] && lastHook[1]
@@ -783,6 +802,11 @@ $('bcnDelBtn').onclick = () => {
 // EMERGENCY back to IN ZONE.
 setInterval(() => {
   for (let i = 0; i < 2; i++) refreshHookSlot(i);
+
+  // Re-evaluate the zone light too: when the biggest-beacon feed goes stale the
+  // "safe" → "NO BEACON" transition must happen on the timer, not wait for the
+  // next BELT_STATUS push.
+  refreshZoneLight();
 
   if (lastLiveBeaconMs > 0) {
     const ageBcn = (Date.now() - lastLiveBeaconMs) / 1000;
