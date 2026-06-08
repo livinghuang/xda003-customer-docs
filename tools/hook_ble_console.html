@@ -438,6 +438,30 @@
   </div>
 
   <div class="card">
+    <h2>BLE TX Power</h2>
+    <div class="row" style="align-items:center;">
+      <label for="txPower">Power:</label>
+      <select id="txPower">
+        <option value="0">0 dBm</option>
+        <option value="3">+3 dBm</option>
+        <option value="6">+6 dBm</option>
+        <option value="9" selected>+9 dBm (default)</option>
+        <option value="12">+12 dBm</option>
+        <option value="15">+15 dBm</option>
+        <option value="18">+18 dBm</option>
+        <option value="20">+20 dBm (max)</option>
+      </select>
+      <button id="setTxPower">Set Power</button>
+      <span id="txPowerState" style="margin-left:8px; font-size:12px;"></span>
+    </div>
+    <div style="margin-top:6px; font-size:11px; color:#c0392b;">
+      ⚠ Higher power increases range but draws more current and may exceed the
+      certified EIRP. The value applies immediately and is saved to flash, so
+      it persists across reboots (factory default is +9 dBm).
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Device Info</h2>
     <table>
       <tr><td style="width:160px;">Hook ID</td>
@@ -915,6 +939,7 @@
     //   0x01 + 1B length                 -> NACK bad length
     //   0x02 + 6B int16 LE               -> mag XYZ data
     //   0x03 + status + cnt + lvl + mode -> hook status update
+    //   0xF0 + int8 applied + ok/fail    -> set-TX-power ACK
     function handleNotification(event) {
       const dv = event.target.value;
       if (dv.byteLength < 1) return;
@@ -924,9 +949,21 @@
         case 0x01: handleNack(dv); break;
         case 0x02: handleMag(dv); break;
         case 0x03: handleStatus(dv); break;
+        case 0xF0: handleTxPowerAck(dv); break;
         default:
           log(`[notify type=0x${type.toString(16)}] ${toHexDV(dv)}`);
       }
+    }
+
+    function handleTxPowerAck(dv) {
+      if (dv.byteLength < 3) return;
+      const applied = dv.getInt8(1);   // firmware-clamped value
+      const ok = dv.getUint8(2);
+      const el = document.getElementById('txPowerState');
+      const txt = `${applied >= 0 ? '+' : ''}${applied} dBm`;
+      el.textContent = ok ? `applied: ${txt}` : `failed (${txt})`;
+      el.style.color = ok ? '#27ae60' : '#c0392b';
+      log(`[rx pwr] ${ok ? 'applied' : 'FAILED'} ${txt}`);
     }
 
     function handleStatus(dv) {
@@ -1218,6 +1255,23 @@
         log('TX OK');
       } catch (e) {
         log(`TX Error: ${e.message || e}`);
+      }
+    });
+
+    const HOOK_CMD_SET_TX_POWER = 0xF0;
+    document.getElementById('setTxPower').addEventListener('click', async () => {
+      if (!writeChar) { log('Not connected.'); return; }
+      try {
+        const dbm = parseInt(document.getElementById('txPower').value, 10);
+        const payload = new Uint8Array([HOOK_CMD_SET_TX_POWER, dbm & 0xff]);
+        log(`[tx pwr] request ${dbm >= 0 ? '+' : ''}${dbm} dBm  ${toHex(payload)}`);
+        if (writeChar.writeValueWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(payload);
+        } else {
+          await writeChar.writeValue(payload);
+        }
+      } catch (e) {
+        log(`TX power error: ${e.message || e}`);
       }
     });
 
