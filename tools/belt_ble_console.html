@@ -655,10 +655,21 @@ function refreshHookSlot(slot) {
     view = adv; src = `advert ${(adv.advAgeMs / 1000).toFixed(1)}s old`;
   } else {
     pillText = 'disappear'; pillClass = 'disc';
-    // Show whichever cached payload is newer (might be 0 if never seen).
-    view = (hookConnLastMs[slot] >= hookAdvLastMs[slot]) ? conn : adv;
-    src  = (hookConnLastMs[slot] || hookAdvLastMs[slot])
-      ? 'last seen ' + Math.round((now - Math.max(hookConnLastMs[slot], hookAdvLastMs[slot])) / 1000) + 's ago'
+    // "last seen" must reflect when the HOOK was actually heard, not when the
+    // console last received a Belt push about it. The connected (0x91) push
+    // stops as soon as the hook stops sending 0x03, so hookConnLastMs ages
+    // correctly on its own. But the advert (0x96) push keeps arriving every
+    // 1 Hz tick with a GROWING firmware-side age_ms long after the hook is off
+    // air — so hookAdvLastMs (receipt time) is ~now forever and naively using
+    // it pinned "last seen" at 0s while the pill correctly read 'disappear'.
+    // Recover the real advert-heard moment as (receipt - advAgeMs).
+    const connHeard = hookConnLastMs[slot] || 0;
+    const advHeard  = adv ? (hookAdvLastMs[slot] - adv.advAgeMs) : 0;
+    const lastHeard = Math.max(connHeard, advHeard);
+    // Show whichever cached payload is newer (might be null if never seen).
+    view = (connHeard >= advHeard) ? conn : adv;
+    src  = lastHeard
+      ? 'last seen ' + Math.round((now - lastHeard) / 1000) + 's ago'
       : '';
   }
   const prefix = `hook${slot}`;
